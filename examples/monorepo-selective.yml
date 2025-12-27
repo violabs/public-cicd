@@ -1,0 +1,83 @@
+# Example: Monorepo with Selective Testing
+# Only runs tests for changed parts of the codebase
+
+name: Selective CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Detect what changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      docs: ${{ steps.changes.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        run: |
+          CHANGES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+          # Backend changes
+          if echo "$CHANGES" | grep -qvE '^(frontend/|docs/|\.github/)'; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Frontend changes
+          if echo "$CHANGES" | grep -q '^frontend/'; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Docs changes
+          if echo "$CHANGES" | grep -q '^docs/'; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Backend tests
+  backend-build:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-build.yml@main
+    with:
+      java-version: '21'
+
+  backend-tests:
+    needs: [detect-changes, backend-build]
+    if: needs.detect-changes.outputs.backend == 'true'
+    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-unit-tests.yml@main
+    with:
+      java-version: '21'
+      coverage-enabled: true
+
+  backend-detekt:
+    needs: [detect-changes, backend-build]
+    if: needs.detect-changes.outputs.backend == 'true'
+    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-detekt.yml@main
+    with:
+      java-version: '21'
+
+  # Frontend tests
+  frontend-tests:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-tests.yml@main
+    with:
+      node-version: '22'
+      working-directory: 'frontend'

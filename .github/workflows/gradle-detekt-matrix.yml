@@ -1,0 +1,89 @@
+name: Gradle Detekt Matrix
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java-distribution:
+        description: 'Java distribution'
+        required: false
+        type: string
+        default: 'temurin'
+      modules-json:
+        description: 'JSON array of modules. Each item should have: module, path, filename'
+        required: true
+        type: string
+      detekt-task:
+        description: 'Detekt task name'
+        required: false
+        type: string
+        default: 'detekt'
+      fallback-to-root:
+        description: 'Fall back to root detekt if module task fails'
+        required: false
+        type: boolean
+        default: true
+      gradle-args:
+        description: 'Additional Gradle arguments'
+        required: false
+        type: string
+        default: '--no-daemon'
+      fail-fast:
+        description: 'Stop on first failure'
+        required: false
+        type: boolean
+        default: true
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+
+jobs:
+  detekt-matrix:
+    name: Detekt ${{ matrix.module-namespace.module }}
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      matrix:
+        module-namespace: ${{ fromJson(inputs.modules-json) }}
+      fail-fast: ${{ inputs.fail-fast }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+          cache: gradle
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Detekt for ${{ matrix.module-namespace.module }}
+        run: |
+          MODULE="${{ matrix.module-namespace.module }}"
+          if [ "$MODULE" == ":src" ] || [ -z "$MODULE" ]; then
+            ./gradlew ${{ inputs.detekt-task }} ${{ inputs.gradle-args }}
+          else
+            if [ "${{ inputs.fallback-to-root }}" == "true" ]; then
+              ./gradlew ${MODULE}:${{ inputs.detekt-task }} ${{ inputs.gradle-args }} 2>/dev/null || \
+              (echo "No detekt task for ${MODULE}, running root detekt" && \
+               ./gradlew ${{ inputs.detekt-task }} ${{ inputs.gradle-args }})
+            else
+              ./gradlew ${MODULE}:${{ inputs.detekt-task }} ${{ inputs.gradle-args }}
+            fi
+          fi

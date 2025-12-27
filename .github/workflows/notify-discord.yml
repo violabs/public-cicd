@@ -1,0 +1,159 @@
+name: Discord Notification
+
+on:
+  workflow_call:
+    inputs:
+      workflow_name:
+        description: 'Name of the workflow'
+        required: true
+        type: string
+      build_result:
+        description: 'Build job result'
+        required: false
+        type: string
+        default: 'skipped'
+      test_result:
+        description: 'Unit tests result'
+        required: false
+        type: string
+        default: 'skipped'
+      component_test_result:
+        description: 'Component tests result'
+        required: false
+        type: string
+        default: 'skipped'
+      frontend_result:
+        description: 'Frontend tests result'
+        required: false
+        type: string
+        default: 'skipped'
+      detekt_result:
+        description: 'Detekt analysis result'
+        required: false
+        type: string
+        default: 'skipped'
+      pr_title:
+        description: 'Pull request title'
+        required: false
+        type: string
+        default: ''
+      pr_number:
+        description: 'Pull request number'
+        required: false
+        type: string
+        default: ''
+      custom_message:
+        description: 'Custom message to include'
+        required: false
+        type: string
+        default: ''
+      mention_on_failure:
+        description: 'Discord role/user to mention on failure'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        description: 'Discord webhook URL'
+        required: true
+
+jobs:
+  notify:
+    name: Send Discord Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          # Check all results
+          RESULTS="${{ inputs.build_result }} ${{ inputs.test_result }} ${{ inputs.component_test_result }} ${{ inputs.frontend_result }} ${{ inputs.detekt_result }}"
+
+          if echo "$RESULTS" | grep -q "failure"; then
+            echo "overall=failure" >> "$GITHUB_OUTPUT"
+            echo "color=15158332" >> "$GITHUB_OUTPUT"  # Red
+            echo "emoji=:x:" >> "$GITHUB_OUTPUT"
+          elif echo "$RESULTS" | grep -q "cancelled"; then
+            echo "overall=cancelled" >> "$GITHUB_OUTPUT"
+            echo "color=8421504" >> "$GITHUB_OUTPUT"  # Gray
+            echo "emoji=:stop_button:" >> "$GITHUB_OUTPUT"
+          elif echo "$RESULTS" | grep -qE "(success|skipped)" && ! echo "$RESULTS" | grep -qE "(failure|cancelled)"; then
+            echo "overall=success" >> "$GITHUB_OUTPUT"
+            echo "color=3066993" >> "$GITHUB_OUTPUT"  # Green
+            echo "emoji=:white_check_mark:" >> "$GITHUB_OUTPUT"
+          else
+            echo "overall=unknown" >> "$GITHUB_OUTPUT"
+            echo "color=16776960" >> "$GITHUB_OUTPUT"  # Yellow
+            echo "emoji=:warning:" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build status emoji
+        id: emojis
+        run: |
+          get_emoji() {
+            case "$1" in
+              success) echo ":white_check_mark:" ;;
+              failure) echo ":x:" ;;
+              cancelled) echo ":stop_button:" ;;
+              skipped) echo ":fast_forward:" ;;
+              *) echo ":grey_question:" ;;
+            esac
+          }
+
+          echo "build=$(get_emoji '${{ inputs.build_result }}')" >> "$GITHUB_OUTPUT"
+          echo "test=$(get_emoji '${{ inputs.test_result }}')" >> "$GITHUB_OUTPUT"
+          echo "component=$(get_emoji '${{ inputs.component_test_result }}')" >> "$GITHUB_OUTPUT"
+          echo "frontend=$(get_emoji '${{ inputs.frontend_result }}')" >> "$GITHUB_OUTPUT"
+          echo "detekt=$(get_emoji '${{ inputs.detekt_result }}')" >> "$GITHUB_OUTPUT"
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          # Build PR info
+          PR_INFO=""
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            PR_INFO="**PR #${{ inputs.pr_number }}**: ${{ inputs.pr_title }}"
+          fi
+
+          # Build mention
+          MENTION=""
+          if [ "${{ steps.status.outputs.overall }}" == "failure" ] && [ -n "${{ inputs.mention_on_failure }}" ]; then
+            MENTION="${{ inputs.mention_on_failure }} "
+          fi
+
+          # Build custom message
+          CUSTOM=""
+          if [ -n "${{ inputs.custom_message }}" ]; then
+            CUSTOM="\n${{ inputs.custom_message }}"
+          fi
+
+          # Create payload
+          cat << 'PAYLOAD' > payload.json
+          {
+            "embeds": [{
+              "title": "${{ steps.status.outputs.emoji }} ${{ inputs.workflow_name }} - ${{ steps.status.outputs.overall }}",
+              "color": ${{ steps.status.outputs.color }},
+              "fields": [
+                {"name": "Build", "value": "${{ steps.emojis.outputs.build }} ${{ inputs.build_result }}", "inline": true},
+                {"name": "Unit Tests", "value": "${{ steps.emojis.outputs.test }} ${{ inputs.test_result }}", "inline": true},
+                {"name": "Component Tests", "value": "${{ steps.emojis.outputs.component }} ${{ inputs.component_test_result }}", "inline": true},
+                {"name": "Frontend", "value": "${{ steps.emojis.outputs.frontend }} ${{ inputs.frontend_result }}", "inline": true},
+                {"name": "Detekt", "value": "${{ steps.emojis.outputs.detekt }} ${{ inputs.detekt_result }}", "inline": true}
+              ],
+              "footer": {"text": "GitHub Actions"},
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }]
+          }
+          PAYLOAD
+
+          # Add PR info if present
+          if [ -n "$PR_INFO" ]; then
+            jq --arg pr "$PR_INFO" '.embeds[0].description = $pr' payload.json > temp.json && mv temp.json payload.json
+          fi
+
+          # Add mention if needed
+          if [ -n "$MENTION" ]; then
+            jq --arg mention "$MENTION" '.content = $mention' payload.json > temp.json && mv temp.json payload.json
+          fi
+
+          curl -H "Content-Type: application/json" -X POST -d @payload.json "$DISCORD_WEBHOOK"

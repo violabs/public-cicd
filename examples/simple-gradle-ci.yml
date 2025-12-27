@@ -1,0 +1,31 @@
+# Example: Simple Gradle CI Workflow
+# A minimal example for basic Gradle projects
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-build.yml@main
+    with:
+      java-version: '21'
+      build-tasks: 'classes testClasses'
+
+  test:
+    needs: build
+    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-unit-tests.yml@main
+    with:
+      java-version: '21'
+      coverage-enabled: true
+      min-coverage-overall: 60
+
+  detekt:
+    needs: build
+    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-detekt.yml@main
+    with:
+      java-version: '21'
