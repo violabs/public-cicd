@@ -1,0 +1,27 @@
+# Example: Frontend-Only CI Workflow
+# For projects with just a frontend application
+
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'package*.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'package*.json'
+
+jobs:
+  test:
+    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-tests.yml@main
+    with:
+      node-version: '22'
+      working-directory: 'frontend'
+      cache-dependency-path: 'frontend/package-lock.json'
+      test-command: 'npm run test:coverage'
+      install-playwright: true
+      playwright-browsers: 'chromium'

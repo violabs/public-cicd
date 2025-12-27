@@ -1,0 +1,89 @@
+name: Frontend Tests
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        type: string
+        default: '22'
+      working-directory:
+        description: 'Working directory for frontend'
+        required: false
+        type: string
+        default: 'frontend'
+      cache-dependency-path:
+        description: 'Path to package-lock.json'
+        required: false
+        type: string
+        default: 'frontend/package-lock.json'
+      test-command:
+        description: 'Command to run tests'
+        required: false
+        type: string
+        default: 'npm run test:coverage'
+      install-playwright:
+        description: 'Install Playwright browsers'
+        required: false
+        type: boolean
+        default: true
+      playwright-browsers:
+        description: 'Playwright browsers to install'
+        required: false
+        type: string
+        default: 'chromium'
+      upload-coverage:
+        description: 'Upload coverage reports'
+        required: false
+        type: boolean
+        default: true
+      coverage-path:
+        description: 'Path to coverage reports'
+        required: false
+        type: string
+        default: 'frontend/coverage/'
+      artifact-name:
+        description: 'Name for coverage artifact'
+        required: false
+        type: string
+        default: 'frontend-coverage-report'
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+
+jobs:
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: inputs.install-playwright
+        working-directory: ${{ inputs.working-directory }}
+        run: npx playwright install --with-deps ${{ inputs.playwright-browsers }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Upload coverage report
+        if: always() && inputs.upload-coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.coverage-path }}

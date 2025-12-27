@@ -1,0 +1,64 @@
+name: 'Check Path Changes'
+description: 'Checks if files in specific paths have changed compared to base branch'
+
+inputs:
+  base-ref:
+    description: 'Base branch to compare against'
+    required: true
+  include-patterns:
+    description: 'Regex pattern for paths to INCLUDE (files matching this are considered changed)'
+    required: false
+    default: ''
+  exclude-patterns:
+    description: 'Regex pattern for paths to EXCLUDE from change detection'
+    required: false
+    default: ''
+  mode:
+    description: 'Detection mode: "include" (match include-patterns) or "exclude" (match everything except exclude-patterns)'
+    required: false
+    default: 'include'
+
+outputs:
+  changed:
+    description: 'Whether relevant files have changed (true/false)'
+    value: ${{ steps.check-changes.outputs.changed }}
+  changed-files:
+    description: 'List of changed files that matched the criteria'
+    value: ${{ steps.check-changes.outputs.changed_files }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check for changes
+      id: check-changes
+      shell: bash
+      run: |
+        CHANGED_FILES=$(git diff --name-only origin/${{ inputs.base-ref }}...HEAD)
+
+        if [ "${{ inputs.mode }}" == "include" ]; then
+          # Include mode: check if any files match the include pattern
+          if [ -n "${{ inputs.include-patterns }}" ]; then
+            MATCHED_FILES=$(echo "$CHANGED_FILES" | grep -E '${{ inputs.include-patterns }}' || true)
+          else
+            MATCHED_FILES="$CHANGED_FILES"
+          fi
+        else
+          # Exclude mode: check if any files DON'T match the exclude pattern
+          if [ -n "${{ inputs.exclude-patterns }}" ]; then
+            MATCHED_FILES=$(echo "$CHANGED_FILES" | grep -vE '${{ inputs.exclude-patterns }}' || true)
+          else
+            MATCHED_FILES="$CHANGED_FILES"
+          fi
+        fi
+
+        if [ -n "$MATCHED_FILES" ]; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          # Store changed files as a single line (comma-separated) for output
+          echo "changed_files=$(echo "$MATCHED_FILES" | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
+          echo "Changed files detected:"
+          echo "$MATCHED_FILES"
+        else
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "changed_files=" >> "$GITHUB_OUTPUT"
+          echo "No matching changes detected"
+        fi

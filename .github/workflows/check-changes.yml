@@ -1,0 +1,92 @@
+name: Check Path Changes
+
+on:
+  workflow_call:
+    inputs:
+      include-patterns:
+        description: 'Regex pattern for paths to INCLUDE'
+        required: false
+        type: string
+        default: ''
+      exclude-patterns:
+        description: 'Regex pattern for paths to EXCLUDE'
+        required: false
+        type: string
+        default: ''
+      mode:
+        description: 'Detection mode: "include" or "exclude"'
+        required: false
+        type: string
+        default: 'include'
+      base-ref:
+        description: 'Base branch to compare against'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      changed:
+        description: 'Whether relevant files have changed'
+        value: ${{ jobs.check-changes.outputs.changed }}
+      changed-files:
+        description: 'List of changed files'
+        value: ${{ jobs.check-changes.outputs.changed_files }}
+
+jobs:
+  check-changes:
+    name: Check Changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      changed_files: ${{ steps.check.outputs.changed_files }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base ref
+        id: base-ref
+        run: |
+          if [ -n "${{ inputs.base-ref }}" ]; then
+            echo "ref=${{ inputs.base-ref }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.base_ref }}" ]; then
+            echo "ref=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for changes
+        id: check
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/${{ steps.base-ref.outputs.ref }}...HEAD || echo "")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changes detected"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "changed_files=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ inputs.mode }}" == "include" ]; then
+            if [ -n "${{ inputs.include-patterns }}" ]; then
+              MATCHED_FILES=$(echo "$CHANGED_FILES" | grep -E '${{ inputs.include-patterns }}' || true)
+            else
+              MATCHED_FILES="$CHANGED_FILES"
+            fi
+          else
+            if [ -n "${{ inputs.exclude-patterns }}" ]; then
+              MATCHED_FILES=$(echo "$CHANGED_FILES" | grep -vE '${{ inputs.exclude-patterns }}' || true)
+            else
+              MATCHED_FILES="$CHANGED_FILES"
+            fi
+          fi
+
+          if [ -n "$MATCHED_FILES" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "changed_files=$(echo "$MATCHED_FILES" | tr '\n' ',' | sed 's/,$//')" >> "$GITHUB_OUTPUT"
+            echo "Changed files:"
+            echo "$MATCHED_FILES"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "changed_files=" >> "$GITHUB_OUTPUT"
+            echo "No matching changes"
+          fi
