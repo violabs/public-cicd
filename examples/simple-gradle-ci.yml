@@ -18,7 +18,7 @@ jobs:
 
   test:
     needs: build
-    uses: violabs/public-cicd/.github/workflows/testing/gradle-unit-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/tests/gradle-unit-tests.yml@main
     with:
       java-version: '21'
       coverage-enabled: true

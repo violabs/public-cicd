@@ -61,7 +61,7 @@ jobs:
   backend-tests:
     needs: [detect-changes, backend-build]
     if: needs.detect-changes.outputs.backend == 'true'
-    uses: violabs/public-cicd/.github/workflows/testing/gradle-unit-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/tests/gradle-unit-tests.yml@main
     with:
       java-version: '21'
       coverage-enabled: true
@@ -77,7 +77,7 @@ jobs:
   frontend-tests:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
-    uses: violabs/public-cicd/.github/workflows/testing/frontend-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/tests/frontend-tests.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'
