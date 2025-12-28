@@ -18,16 +18,21 @@ on:
         required: false
         type: string
         default: 'detekt'
-      runs-on:
-        description: 'Runner to use'
+      gradle-args:
+        description: 'Additional Gradle arguments'
         required: false
         type: string
-        default: 'ubuntu-latest'
+        default: ''
+      runs-on:
+        description: 'Runner to use (string or JSON array for labels)'
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
 
 jobs:
   detekt:
     name: Detekt Analysis
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     steps:
       - uses: actions/checkout@v4
 

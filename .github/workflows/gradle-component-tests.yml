@@ -49,15 +49,15 @@ on:
         type: string
         default: 'build/reports/tests/'
       runs-on:
-        description: 'Runner to use'
+        description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
-        default: 'ubuntu-latest'
+        default: '"ubuntu-latest"'
 
 jobs:
   component-tests:
     name: ${{ inputs.test-name }}
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     steps:
       - uses: actions/checkout@v4
 

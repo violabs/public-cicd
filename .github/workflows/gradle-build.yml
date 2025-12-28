@@ -24,10 +24,10 @@ on:
         type: string
         default: '--no-daemon'
       runs-on:
-        description: 'Runner to use'
+        description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
-        default: 'ubuntu-latest'
+        default: '"ubuntu-latest"'
     outputs:
       result:
         description: 'Build result (success/failure)'
@@ -36,7 +36,7 @@ on:
 jobs:
   build-check:
     name: Build Check
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     outputs:
       result: ${{ steps.build.outcome }}
     steps:

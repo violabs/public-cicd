@@ -63,15 +63,15 @@ on:
         type: number
         default: 40
       runs-on:
-        description: 'Runner to use'
+        description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
-        default: 'ubuntu-latest'
+        default: '"ubuntu-latest"'
 
 jobs:
   matrix-tests:
     name: Test ${{ matrix.module-namespace.module }}
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     strategy:
       matrix:
         module-namespace: ${{ fromJson(inputs.modules-json) }}

@@ -34,15 +34,15 @@ on:
         type: string
         default: 'frontend-coverage-report'
       runs-on:
-        description: 'Runner to use'
+        description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
-        default: 'ubuntu-latest'
+        default: '"ubuntu-latest"'
 
 jobs:
   unit-tests:
     name: Frontend Unit Tests
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJson(inputs.runs-on) }}
     steps:
       - uses: actions/checkout@v4
 
