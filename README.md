@@ -9,35 +9,33 @@ Reference these workflows from your repository:
 ```yaml
 jobs:
   build:
-    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-build.yml@main
+    uses: violabs/public-cicd/.github/workflows/initial/gradle-build.yml@main
     with:
       java-version: '21'
 ```
-
-Replace `YOUR_ORG` with your GitHub organization or username.
 
 ## Available Components
 
 ### Reusable Workflows
 
-| Workflow | Description |
-|----------|-------------|
-| [`check-changes.yml`](.github/workflows/check-changes.yml) | Detect file changes based on include/exclude patterns |
-| [`gradle-build.yml`](.github/workflows/gradle-build.yml) | Fast-fail Gradle build check |
-| [`gradle-unit-tests.yml`](.github/workflows/gradle-unit-tests.yml) | Run unit tests with Kover coverage |
-| [`gradle-component-tests.yml`](.github/workflows/gradle-component-tests.yml) | Run component/integration tests |
-| [`gradle-matrix-tests.yml`](.github/workflows/gradle-matrix-tests.yml) | Run tests across multiple modules in parallel |
-| [`gradle-detekt.yml`](.github/workflows/gradle-detekt.yml) | Detekt static analysis for single module |
-| [`gradle-detekt-matrix.yml`](.github/workflows/gradle-detekt-matrix.yml) | Detekt analysis across multiple modules |
-| [`frontend-tests.yml`](.github/workflows/frontend-tests.yml) | Node.js/Playwright frontend tests |
-| [`notify-discord.yml`](.github/workflows/notify-discord.yml) | Discord notifications for build results |
+| Workflow                                                                     | Description                                           |
+|------------------------------------------------------------------------------|-------------------------------------------------------|
+| [`check-changes.yml`](.github/workflows/check-changes.yml)                   | Detect file changes based on include/exclude patterns |
+| [`gradle-build.yml`](.github/workflows/gradle-build.yml)                     | Fast-fail Gradle build check                          |
+| [`gradle-unit-tests.yml`](.github/workflows/gradle-unit-tests.yml)           | Run unit tests with Kover coverage                    |
+| [`gradle-component-tests.yml`](.github/workflows/gradle-component-tests.yml) | Run component/integration tests                       |
+| [`gradle-matrix-tests.yml`](.github/workflows/gradle-matrix-tests.yml)       | Run tests across multiple modules in parallel         |
+| [`gradle-detekt.yml`](.github/workflows/gradle-detekt.yml)                   | Detekt static analysis for single module              |
+| [`gradle-detekt-matrix.yml`](.github/workflows/gradle-detekt-matrix.yml)     | Detekt analysis across multiple modules               |
+| [`frontend-tests.yml`](.github/workflows/frontend-tests.yml)                 | Node.js/Playwright frontend tests                     |
+| [`notify-discord.yml`](.github/workflows/notify-discord.yml)                 | Discord notifications for build results               |
 
 ### Composite Actions
 
-| Action | Description |
-|--------|-------------|
-| [`setup-java-gradle`](.github/actions/setup-java-gradle/action.yml) | Setup Java, Gradle, and caching |
-| [`setup-node`](.github/actions/setup-node/action.yml) | Setup Node.js with npm caching |
+| Action                                                                | Description                     |
+|-----------------------------------------------------------------------|---------------------------------|
+| [`setup-java-gradle`](.github/actions/setup-java-gradle/action.yml)   | Setup Java, Gradle, and caching |
+| [`setup-node`](.github/actions/setup-node/action.yml)                 | Setup Node.js with npm caching  |
 | [`check-path-changes`](.github/actions/check-path-changes/action.yml) | Check if specific paths changed |
 
 ## Workflow Reference
@@ -49,13 +47,14 @@ Detects file changes between branches.
 ```yaml
 jobs:
   check-backend:
-    uses: YOUR_ORG/public-cicd/.github/workflows/check-changes.yml@main
+    uses: violabs/public-cicd/.github/workflows/decision/check-changes.yml@main
     with:
       mode: exclude                              # 'include' or 'exclude'
       exclude-patterns: '^(frontend/|docs/)'     # Regex pattern
 ```
 
 **Outputs:**
+
 - `changed`: `true` or `false`
 - `changed-files`: Comma-separated list of changed files
 
@@ -68,7 +67,7 @@ Fast compilation check without running tests.
 ```yaml
 jobs:
   build:
-    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-build.yml@main
+    uses: violabs/public-cicd/.github/workflows/initial/gradle-build.yml@main
     with:
       java-version: '21'                         # Default: '21'
       java-distribution: 'temurin'               # Default: 'temurin'
@@ -85,7 +84,7 @@ Run unit tests with optional Kover coverage.
 ```yaml
 jobs:
   test:
-    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-unit-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/testing/gradle-unit-tests.yml@main
     with:
       java-version: '21'
       module: ':app'                             # Optional: specific module
@@ -117,7 +116,7 @@ jobs:
 
   test:
     needs: determine-modules
-    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-matrix-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/testing/gradle-matrix-tests.yml@main
     with:
       modules-json: ${{ needs.determine-modules.outputs.matrix }}
       coverage-enabled: true
@@ -133,7 +132,7 @@ Run component/integration tests.
 ```yaml
 jobs:
   component-tests:
-    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-component-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/testing/gradle-component-tests.yml@main
     with:
       test-task: 'testComponents'                # Default: 'testComponents'
       exclude-tasks: 'npmInstall'
@@ -149,7 +148,7 @@ Run Detekt static analysis.
 ```yaml
 jobs:
   detekt:
-    uses: YOUR_ORG/public-cicd/.github/workflows/gradle-detekt.yml@main
+    uses: violabs/public-cicd/.github/workflows/initial/gradle-detekt.yml@main
     with:
       module: ':app'                             # Optional: specific module
       fallback-to-root: true                     # Run root detekt if module fails
@@ -164,7 +163,7 @@ Run frontend tests with Node.js and optional Playwright.
 ```yaml
 jobs:
   frontend:
-    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/testing/frontend-tests.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'
@@ -183,7 +182,7 @@ Send Discord notifications about workflow results.
 ```yaml
 jobs:
   notify:
-    uses: YOUR_ORG/public-cicd/.github/workflows/notify-discord.yml@main
+    uses: violabs/public-cicd/.github/workflows/notification/notify-discord.yml@main
     if: always()
     with:
       workflow_name: ${{ github.workflow }}
@@ -215,7 +214,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: YOUR_ORG/public-cicd/.github/actions/setup-java-gradle@main
+      - uses: violabs/public-cicd/.github/actions/setup-java-gradle@main
         with:
           java-version: '21'
 
