@@ -82,12 +82,12 @@ on:
         description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
-        default: '"ubuntu-latest"'
+        default: 'ubuntu-latest'
 
 jobs:
   unit-tests:
     name: Unit Tests
-    runs-on: ${{ fromJson(inputs.runs-on) }}
+    runs-on: ${{ contains(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
     steps:
       - uses: actions/checkout@v4
 

@@ -66,12 +66,12 @@ on:
         description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
-        default: '"ubuntu-latest"'
+        default: 'ubuntu-latest'
 
 jobs:
   matrix-tests:
     name: Test ${{ matrix.module-namespace.module }}
-    runs-on: ${{ fromJson(inputs.runs-on) }}
+    runs-on: ${{ contains(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
     strategy:
       matrix:
         module-namespace: ${{ fromJson(inputs.modules-json) }}
