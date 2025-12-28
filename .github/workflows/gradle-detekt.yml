@@ -13,26 +13,11 @@ on:
         required: false
         type: string
         default: 'temurin'
-      module:
-        description: 'Gradle module to run detekt on. Empty for root project.'
-        required: false
-        type: string
-        default: ''
       detekt-task:
         description: 'Detekt task name'
         required: false
         type: string
         default: 'detekt'
-      fallback-to-root:
-        description: 'Fall back to root detekt if module task fails'
-        required: false
-        type: boolean
-        default: true
-      gradle-args:
-        description: 'Additional Gradle arguments'
-        required: false
-        type: string
-        default: '--no-daemon'
       runs-on:
         description: 'Runner to use'
         required: false
@@ -46,36 +31,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: violabs/public-cicd/.github/actions/setup-java-gradle@main
         with:
-          distribution: ${{ inputs.java-distribution }}
+          java-distribution: ${{ inputs.java-distribution }}
           java-version: ${{ inputs.java-version }}
-          cache: gradle
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
 
       - name: Run Detekt
-        run: |
-          MODULE_PREFIX="${{ inputs.module }}"
-          if [ -n "$MODULE_PREFIX" ] && [ "$MODULE_PREFIX" != ":" ]; then
-            if [ "${{ inputs.fallback-to-root }}" == "true" ]; then
-              ./gradlew ${MODULE_PREFIX}:${{ inputs.detekt-task }} ${{ inputs.gradle-args }} 2>/dev/null || \
-              (echo "No detekt task for ${MODULE_PREFIX}, running root detekt" && \
-               ./gradlew ${{ inputs.detekt-task }} ${{ inputs.gradle-args }})
-            else
-              ./gradlew ${MODULE_PREFIX}:${{ inputs.detekt-task }} ${{ inputs.gradle-args }}
-            fi
-          else
-            ./gradlew ${{ inputs.detekt-task }} ${{ inputs.gradle-args }}
-          fi
+        run: ./gradlew ${{ inputs.detekt-task }} ${{ inputs.gradle-args }}

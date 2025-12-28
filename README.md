@@ -27,7 +27,7 @@ jobs:
 | [`gradle-matrix-tests.yml`](.github/workflows/gradle-matrix-tests.yml)       | Run tests across multiple modules in parallel         |
 | [`gradle-detekt.yml`](.github/workflows/gradle-detekt.yml)                   | Detekt static analysis for single module              |
 | [`gradle-detekt-matrix.yml`](.github/workflows/gradle-detekt-matrix.yml)     | Detekt analysis across multiple modules               |
-| [`frontend-tests.yml`](.github/workflows/frontend-tests.yml)                 | Node.js/Playwright frontend tests                     |
+| [`frontend-tests.yml`](.github/workflows/frontend-tests-npm.yml)                 | Node.js/Playwright frontend tests                     |
 | [`notify-discord.yml`](.github/workflows/notify-discord.yml)                 | Discord notifications for build results               |
 
 ### Composite Actions
@@ -163,7 +163,7 @@ Run frontend tests with Node.js and optional Playwright.
 ```yaml
 jobs:
   frontend:
-    uses: violabs/public-cicd/.github/workflows/frontend-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/frontend-tests-npm.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'

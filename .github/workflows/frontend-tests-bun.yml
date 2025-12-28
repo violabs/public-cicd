@@ -1,0 +1,90 @@
+name: Frontend Tests (Bun)
+
+on:
+  workflow_call:
+    inputs:
+      bun-version:
+        description: 'Bun version to use'
+        required: false
+        type: string
+        default: 'latest'
+      working-directory:
+        description: 'Working directory for frontend'
+        required: false
+        type: string
+        default: 'frontend'
+      test-command:
+        description: 'Command to run tests'
+        required: false
+        type: string
+        default: 'bun run test:coverage'
+      install-playwright:
+        description: 'Install Playwright browsers'
+        required: false
+        type: boolean
+        default: true
+      playwright-browsers:
+        description: 'Playwright browsers to install'
+        required: false
+        type: string
+        default: 'chromium'
+      upload-coverage:
+        description: 'Upload coverage reports'
+        required: false
+        type: boolean
+        default: true
+      coverage-path:
+        description: 'Path to coverage reports'
+        required: false
+        type: string
+        default: 'frontend/coverage/'
+      artifact-name:
+        description: 'Name for coverage artifact'
+        required: false
+        type: string
+        default: 'frontend-coverage-report'
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+
+jobs:
+  frontend-tests:
+    name: Frontend Tests (Bun)
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun ${{ inputs.bun-version }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ inputs.bun-version }}
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        if: inputs.install-playwright
+        working-directory: ${{ inputs.working-directory }}
+        run: bunx playwright install --with-deps ${{ inputs.playwright-browsers }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Upload coverage report
+        if: always() && inputs.upload-coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.coverage-path }}

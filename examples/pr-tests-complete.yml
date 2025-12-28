@@ -91,7 +91,7 @@ jobs:
   frontend-tests:
     needs: check-frontend
     if: needs.check-frontend.outputs.changed == 'true'
-    uses: violabs/public-cicd/.github/workflows/frontend-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/frontend-tests-npm.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'

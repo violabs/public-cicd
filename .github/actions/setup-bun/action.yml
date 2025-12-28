@@ -1,0 +1,38 @@
+name: 'Setup Bun'
+description: 'Sets up Bun with caching'
+
+inputs:
+  bun-version:
+    description: 'Bun version to use'
+    required: false
+    default: 'latest'
+  working-directory:
+    description: 'Working directory for bun operations'
+    required: false
+    default: '.'
+  install-dependencies:
+    description: 'Whether to run bun install'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Bun ${{ inputs.bun-version }}
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - name: Cache Bun dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.bun/install/cache
+        key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
+    - name: Install dependencies
+      if: inputs.install-dependencies == 'true'
+      working-directory: ${{ inputs.working-directory }}
+      shell: bash
+      run: bun install --frozen-lockfile
