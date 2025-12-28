@@ -17,7 +17,7 @@ on:
 
 jobs:
   test:
-    uses: YOUR_ORG/public-cicd/.github/workflows/tests/frontend-tests.yml@main
+    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-tests.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'

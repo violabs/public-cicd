@@ -20,7 +20,7 @@ jobs:
   # Check if backend code changed (anything outside frontend/, .github/, docs/)
   check-backend:
     name: Check Backend Changes
-    uses: violabs/public-cicd/.github/workflows/decisions/check-changes.yml@main
+    uses: violabs/public-cicd/.github/workflows/check-changes.yml@main
     with:
       mode: exclude
       exclude-patterns: '^(frontend/|\.github/|docs/)'
@@ -28,7 +28,7 @@ jobs:
   # Check if frontend code changed
   check-frontend:
     name: Check Frontend Changes
-    uses: violabs/public-cicd/.github/workflows/decisions/check-changes.yml@main
+    uses: violabs/public-cicd/.github/workflows/check-changes.yml@main
     with:
       mode: include
       include-patterns: '^frontend/'
@@ -38,7 +38,7 @@ jobs:
     name: Build Check
     needs: check-backend
     if: needs.check-backend.outputs.changed == 'true'
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-build.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-build.yml@main
     with:
       java-version: '21'
       build-tasks: 'classes testClasses componentTestClasses'
@@ -69,7 +69,7 @@ jobs:
   unit-tests:
     needs: [check-backend, build-check, determine-modules]
     if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success' && needs.determine-modules.outputs.matrix != '[]'
-    uses: violabs/public-cicd/.github/workflows/tests/gradle-matrix-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-matrix-tests.yml@main
     with:
       java-version: '21'
       modules-json: ${{ needs.determine-modules.outputs.matrix }}
@@ -82,7 +82,7 @@ jobs:
   component-tests:
     needs: [check-backend, build-check]
     if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
-    uses: violabs/public-cicd/.github/workflows/tests/gradle-component-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-component-tests.yml@main
     with:
       java-version: '21'
       exclude-tasks: 'npmInstall'
@@ -91,7 +91,7 @@ jobs:
   frontend-tests:
     needs: check-frontend
     if: needs.check-frontend.outputs.changed == 'true'
-    uses: violabs/public-cicd/.github/workflows/tests/frontend-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/frontend-tests.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'
@@ -104,7 +104,7 @@ jobs:
   detekt-check:
     needs: determine-modules
     if: needs.determine-modules.outputs.matrix != '[]'
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-detekt-matrix.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-detekt-matrix.yml@main
     with:
       java-version: '21'
       modules-json: ${{ needs.determine-modules.outputs.matrix }}
@@ -115,7 +115,7 @@ jobs:
     name: Notify Discord
     needs: [check-backend, build-check, unit-tests, component-tests, frontend-tests, detekt-check]
     if: always()
-    uses: violabs/public-cicd/.github/workflows/notifications/notify-discord.yml@main
+    uses: violabs/public-cicd/.github/workflows/notify-discord.yml@main
     with:
       workflow_name: ${{ github.workflow }}
       build_result: ${{ needs.build-check.result }}

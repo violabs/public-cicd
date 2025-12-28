@@ -11,14 +11,14 @@ on:
 
 jobs:
   build:
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-build.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-build.yml@main
     with:
       java-version: '21'
       build-tasks: 'classes testClasses'
 
   test:
     needs: build
-    uses: violabs/public-cicd/.github/workflows/tests/gradle-unit-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-unit-tests.yml@main
     with:
       java-version: '21'
       coverage-enabled: true
@@ -26,6 +26,6 @@ jobs:
 
   detekt:
     needs: build
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-detekt.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-detekt.yml@main
     with:
       java-version: '21'

@@ -9,7 +9,7 @@ Reference these workflows from your repository:
 ```yaml
 jobs:
   build:
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-build.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-build.yml@main
     with:
       java-version: '21'
 ```
@@ -47,7 +47,7 @@ Detects file changes between branches.
 ```yaml
 jobs:
   check-backend:
-    uses: violabs/public-cicd/.github/workflows/decision/check-changes.yml@main
+    uses: violabs/public-cicd/.github/workflows/check-changes.yml@main
     with:
       mode: exclude                              # 'include' or 'exclude'
       exclude-patterns: '^(frontend/|docs/)'     # Regex pattern
@@ -67,7 +67,7 @@ Fast compilation check without running tests.
 ```yaml
 jobs:
   build:
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-build.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-build.yml@main
     with:
       java-version: '21'                         # Default: '21'
       java-distribution: 'temurin'               # Default: 'temurin'
@@ -84,7 +84,7 @@ Run unit tests with optional Kover coverage.
 ```yaml
 jobs:
   test:
-    uses: violabs/public-cicd/.github/workflows/testing/gradle-unit-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-unit-tests.yml@main
     with:
       java-version: '21'
       module: ':app'                             # Optional: specific module
@@ -116,7 +116,7 @@ jobs:
 
   test:
     needs: determine-modules
-    uses: violabs/public-cicd/.github/workflows/testing/gradle-matrix-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-matrix-tests.yml@main
     with:
       modules-json: ${{ needs.determine-modules.outputs.matrix }}
       coverage-enabled: true
@@ -132,7 +132,7 @@ Run component/integration tests.
 ```yaml
 jobs:
   component-tests:
-    uses: violabs/public-cicd/.github/workflows/testing/gradle-component-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-component-tests.yml@main
     with:
       test-task: 'testComponents'                # Default: 'testComponents'
       exclude-tasks: 'npmInstall'
@@ -148,7 +148,7 @@ Run Detekt static analysis.
 ```yaml
 jobs:
   detekt:
-    uses: violabs/public-cicd/.github/workflows/initial/gradle-detekt.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-detekt.yml@main
     with:
       module: ':app'                             # Optional: specific module
       fallback-to-root: true                     # Run root detekt if module fails
@@ -163,7 +163,7 @@ Run frontend tests with Node.js and optional Playwright.
 ```yaml
 jobs:
   frontend:
-    uses: violabs/public-cicd/.github/workflows/testing/frontend-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/frontend-tests.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'
@@ -182,7 +182,7 @@ Send Discord notifications about workflow results.
 ```yaml
 jobs:
   notify:
-    uses: violabs/public-cicd/.github/workflows/notification/notify-discord.yml@main
+    uses: violabs/public-cicd/.github/workflows/notify-discord.yml@main
     if: always()
     with:
       workflow_name: ${{ github.workflow }}
