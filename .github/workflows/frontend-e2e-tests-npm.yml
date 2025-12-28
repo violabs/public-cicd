@@ -1,0 +1,78 @@
+name: Frontend E2E Tests (npm)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        type: string
+        default: '22'
+      working-directory:
+        description: 'Working directory for frontend'
+        required: false
+        type: string
+        default: 'frontend'
+      cache-dependency-path:
+        description: 'Path to package-lock.json'
+        required: false
+        type: string
+        default: 'frontend/package-lock.json'
+      test-command:
+        description: 'Command to run e2e tests'
+        required: false
+        type: string
+        default: 'npm run test:e2e'
+      playwright-browsers:
+        description: 'Playwright browsers to install'
+        required: false
+        type: string
+        default: 'chromium'
+      upload-results:
+        description: 'Upload test results'
+        required: false
+        type: boolean
+        default: true
+      results-path:
+        description: 'Path to test results'
+        required: false
+        type: string
+        default: 'frontend/playwright-report/'
+      artifact-name:
+        description: 'Name for results artifact'
+        required: false
+        type: string
+        default: 'frontend-e2e-report'
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+
+jobs:
+  e2e-tests:
+    name: Frontend E2E Tests
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: violabs/public-cicd/.github/actions/setup-node@main
+        with:
+          node-version: ${{ inputs.node-version }}
+          working-directory: ${{ inputs.working-directory }}
+          cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+      - name: Install Playwright browsers
+        working-directory: ${{ inputs.working-directory }}
+        run: npx playwright install --with-deps ${{ inputs.playwright-browsers }}
+
+      - name: Run E2E tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Upload test results
+        if: always() && inputs.upload-results
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.results-path }}

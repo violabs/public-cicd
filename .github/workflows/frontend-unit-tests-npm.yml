@@ -1,4 +1,4 @@
-name: Frontend Tests
+name: Frontend Unit Tests (npm)
 
 on:
   workflow_call:
@@ -23,16 +23,6 @@ on:
         required: false
         type: string
         default: 'npm run test:coverage'
-      install-playwright:
-        description: 'Install Playwright browsers'
-        required: false
-        type: boolean
-        default: true
-      playwright-browsers:
-        description: 'Playwright browsers to install'
-        required: false
-        type: string
-        default: 'chromium'
       upload-coverage:
         description: 'Upload coverage reports'
         required: false
@@ -55,27 +45,17 @@ on:
         default: 'ubuntu-latest'
 
 jobs:
-  frontend-tests:
-    name: Frontend Tests
+  unit-tests:
+    name: Frontend Unit Tests
     runs-on: ${{ inputs.runs-on }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ inputs.node-version }}
-        uses: actions/setup-node@v4
+      - uses: violabs/public-cicd/.github/actions/setup-node@main
         with:
           node-version: ${{ inputs.node-version }}
-          cache: 'npm'
+          working-directory: ${{ inputs.working-directory }}
           cache-dependency-path: ${{ inputs.cache-dependency-path }}
-
-      - name: Install dependencies
-        working-directory: ${{ inputs.working-directory }}
-        run: npm ci
-
-      - name: Install Playwright browsers
-        if: inputs.install-playwright
-        working-directory: ${{ inputs.working-directory }}
-        run: npx playwright install --with-deps ${{ inputs.playwright-browsers }}
 
       - name: Run tests
         working-directory: ${{ inputs.working-directory }}

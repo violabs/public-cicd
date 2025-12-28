@@ -1,4 +1,4 @@
-name: Frontend Tests (Bun)
+name: Frontend E2E Tests (Bun)
 
 on:
   workflow_call:
@@ -14,35 +14,30 @@ on:
         type: string
         default: 'frontend'
       test-command:
-        description: 'Command to run tests'
+        description: 'Command to run e2e tests'
         required: false
         type: string
-        default: 'bun run test:coverage'
-      install-playwright:
-        description: 'Install Playwright browsers'
-        required: false
-        type: boolean
-        default: true
+        default: 'bun run test:e2e'
       playwright-browsers:
         description: 'Playwright browsers to install'
         required: false
         type: string
         default: 'chromium'
-      upload-coverage:
-        description: 'Upload coverage reports'
+      upload-results:
+        description: 'Upload test results'
         required: false
         type: boolean
         default: true
-      coverage-path:
-        description: 'Path to coverage reports'
+      results-path:
+        description: 'Path to test results'
         required: false
         type: string
-        default: 'frontend/coverage/'
+        default: 'frontend/playwright-report/'
       artifact-name:
-        description: 'Name for coverage artifact'
+        description: 'Name for results artifact'
         required: false
         type: string
-        default: 'frontend-coverage-report'
+        default: 'frontend-e2e-report'
       runs-on:
         description: 'Runner to use'
         required: false
@@ -50,41 +45,28 @@ on:
         default: 'ubuntu-latest'
 
 jobs:
-  frontend-tests:
-    name: Frontend Tests (Bun)
+  e2e-tests:
+    name: Frontend E2E Tests
     runs-on: ${{ inputs.runs-on }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Bun ${{ inputs.bun-version }}
-        uses: oven-sh/setup-bun@v2
+      - uses: violabs/public-cicd/.github/actions/setup-bun@main
         with:
           bun-version: ${{ inputs.bun-version }}
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        working-directory: ${{ inputs.working-directory }}
-        run: bun install --frozen-lockfile
+          working-directory: ${{ inputs.working-directory }}
 
       - name: Install Playwright browsers
-        if: inputs.install-playwright
         working-directory: ${{ inputs.working-directory }}
         run: bunx playwright install --with-deps ${{ inputs.playwright-browsers }}
 
-      - name: Run tests
+      - name: Run E2E tests
         working-directory: ${{ inputs.working-directory }}
         run: ${{ inputs.test-command }}
 
-      - name: Upload coverage report
-        if: always() && inputs.upload-coverage
+      - name: Upload test results
+        if: always() && inputs.upload-results
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}
-          path: ${{ inputs.coverage-path }}
+          path: ${{ inputs.results-path }}

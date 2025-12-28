@@ -1,0 +1,63 @@
+name: Frontend Unit Tests (Bun)
+
+on:
+  workflow_call:
+    inputs:
+      bun-version:
+        description: 'Bun version to use'
+        required: false
+        type: string
+        default: 'latest'
+      working-directory:
+        description: 'Working directory for frontend'
+        required: false
+        type: string
+        default: 'frontend'
+      test-command:
+        description: 'Command to run tests'
+        required: false
+        type: string
+        default: 'bun run test:coverage'
+      upload-coverage:
+        description: 'Upload coverage reports'
+        required: false
+        type: boolean
+        default: true
+      coverage-path:
+        description: 'Path to coverage reports'
+        required: false
+        type: string
+        default: 'frontend/coverage/'
+      artifact-name:
+        description: 'Name for coverage artifact'
+        required: false
+        type: string
+        default: 'frontend-coverage-report'
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+
+jobs:
+  unit-tests:
+    name: Frontend Unit Tests
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: violabs/public-cicd/.github/actions/setup-bun@main
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-command }}
+
+      - name: Upload coverage report
+        if: always() && inputs.upload-coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.coverage-path }}

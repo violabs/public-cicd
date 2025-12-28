@@ -23,6 +23,11 @@ on:
         required: false
         type: string
         default: ''
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
     outputs:
       changed:
         description: 'Whether relevant files have changed'
@@ -34,7 +39,7 @@ on:
 jobs:
   check-changes:
     name: Check Changes
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
     outputs:
       changed: ${{ steps.check.outputs.changed }}
       changed_files: ${{ steps.check.outputs.changed_files }}

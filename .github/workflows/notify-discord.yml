@@ -72,6 +72,11 @@ on:
         required: false
         type: string
         default: ''
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
     secrets:
       DISCORD_WEBHOOK_URL:
         description: 'Discord webhook URL'
@@ -80,7 +85,7 @@ on:
 jobs:
   notify:
     name: Send Discord Notification
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Determine overall status
         id: status
