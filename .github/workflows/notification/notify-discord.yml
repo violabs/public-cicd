@@ -1,54 +1,74 @@
-name: Discord Notification
+name: Notify Discord
 
 on:
   workflow_call:
     inputs:
       workflow_name:
-        description: 'Name of the workflow'
+        description: 'Name of the calling workflow'
         required: true
         type: string
       build_result:
-        description: 'Build job result'
+        description: 'Result of build job'
         required: false
         type: string
         default: 'skipped'
       test_result:
-        description: 'Unit tests result'
+        description: 'Result of test job'
         required: false
         type: string
         default: 'skipped'
       component_test_result:
-        description: 'Component tests result'
+        description: 'Result of component test job'
         required: false
         type: string
         default: 'skipped'
       frontend_result:
-        description: 'Frontend tests result'
+        description: 'Result of frontend test job'
+        required: false
+        type: string
+        default: 'skipped'
+      e2e_result:
+        description: 'Result of E2E test job'
         required: false
         type: string
         default: 'skipped'
       detekt_result:
-        description: 'Detekt analysis result'
+        description: 'Result of Detekt job'
+        required: false
+        type: string
+        default: 'skipped'
+      deploy_result:
+        description: 'Result of deploy job'
         required: false
         type: string
         default: 'skipped'
       pr_title:
-        description: 'Pull request title'
+        description: 'Pull request title (for PR workflows)'
         required: false
         type: string
         default: ''
       pr_number:
-        description: 'Pull request number'
+        description: 'Pull request number (for PR workflows)'
         required: false
         type: string
         default: ''
-      custom_message:
-        description: 'Custom message to include'
+      version:
+        description: 'Current version (for deploy workflows)'
         required: false
         type: string
         default: ''
-      mention_on_failure:
-        description: 'Discord role/user to mention on failure'
+      next_version:
+        description: 'Next version (for deploy workflows)'
+        required: false
+        type: string
+        default: ''
+      custom_title:
+        description: 'Custom title override'
+        required: false
+        type: string
+        default: ''
+      custom_description:
+        description: 'Custom description override'
         required: false
         type: string
         default: ''
@@ -65,95 +85,198 @@ jobs:
       - name: Determine overall status
         id: status
         run: |
-          # Check all results
-          RESULTS="${{ inputs.build_result }} ${{ inputs.test_result }} ${{ inputs.component_test_result }} ${{ inputs.frontend_result }} ${{ inputs.detekt_result }}"
+          # Check if any job failed (ignore skipped jobs)
+          FAILED=false
+          for result in "${{ inputs.build_result }}" "${{ inputs.test_result }}" \
+                        "${{ inputs.component_test_result }}" "${{ inputs.frontend_result }}" \
+                        "${{ inputs.e2e_result }}" "${{ inputs.detekt_result }}" \
+                        "${{ inputs.deploy_result }}"; do
+            if [[ "$result" == "failure" ]]; then
+              FAILED=true
+              break
+            fi
+          done
 
-          if echo "$RESULTS" | grep -q "failure"; then
-            echo "overall=failure" >> "$GITHUB_OUTPUT"
-            echo "color=15158332" >> "$GITHUB_OUTPUT"  # Red
-            echo "emoji=:x:" >> "$GITHUB_OUTPUT"
-          elif echo "$RESULTS" | grep -q "cancelled"; then
-            echo "overall=cancelled" >> "$GITHUB_OUTPUT"
-            echo "color=8421504" >> "$GITHUB_OUTPUT"  # Gray
-            echo "emoji=:stop_button:" >> "$GITHUB_OUTPUT"
-          elif echo "$RESULTS" | grep -qE "(success|skipped)" && ! echo "$RESULTS" | grep -qE "(failure|cancelled)"; then
-            echo "overall=success" >> "$GITHUB_OUTPUT"
-            echo "color=3066993" >> "$GITHUB_OUTPUT"  # Green
-            echo "emoji=:white_check_mark:" >> "$GITHUB_OUTPUT"
+          if [[ "$FAILED" == "true" ]]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "color=15158332" >> "$GITHUB_OUTPUT"
           else
-            echo "overall=unknown" >> "$GITHUB_OUTPUT"
-            echo "color=16776960" >> "$GITHUB_OUTPUT"  # Yellow
-            echo "emoji=:warning:" >> "$GITHUB_OUTPUT"
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "color=3066993" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build status emoji
-        id: emojis
+      - name: Build notification fields
+        id: fields
         run: |
-          get_emoji() {
-            case "$1" in
-              success) echo ":white_check_mark:" ;;
-              failure) echo ":x:" ;;
-              cancelled) echo ":stop_button:" ;;
-              skipped) echo ":fast_forward:" ;;
-              *) echo ":grey_question:" ;;
-            esac
-          }
+          # Build dynamic fields based on what jobs were run
+          FIELDS='[
+            {
+              "name": "Branch",
+              "value": "`${{ github.ref }}`",
+              "inline": true
+            },
+            {
+              "name": "Author",
+              "value": "`${{ github.actor }}`",
+              "inline": true
+            },
+            {
+              "name": "Status",
+              "value": "`${{ steps.status.outputs.status }}`",
+              "inline": true
+            }'
 
-          echo "build=$(get_emoji '${{ inputs.build_result }}')" >> "$GITHUB_OUTPUT"
-          echo "test=$(get_emoji '${{ inputs.test_result }}')" >> "$GITHUB_OUTPUT"
-          echo "component=$(get_emoji '${{ inputs.component_test_result }}')" >> "$GITHUB_OUTPUT"
-          echo "frontend=$(get_emoji '${{ inputs.frontend_result }}')" >> "$GITHUB_OUTPUT"
-          echo "detekt=$(get_emoji '${{ inputs.detekt_result }}')" >> "$GITHUB_OUTPUT"
+          # Add Version field if provided (for deploy workflows)
+          if [[ -n "${{ inputs.version }}" && "${{ inputs.version }}" != "" ]]; then
+            FIELDS+=',
+            {
+              "name": "Version",
+              "value": "`${{ inputs.version }}`",
+              "inline": true
+            }'
+          fi
 
-      - name: Send Discord notification
+          # Add Next Version field if provided (for deploy workflows)
+          if [[ -n "${{ inputs.next_version }}" && "${{ inputs.next_version }}" != "" ]]; then
+            FIELDS+=',
+            {
+              "name": "Next Version",
+              "value": "`${{ inputs.next_version }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Build field if not skipped
+          if [[ "${{ inputs.build_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "Build",
+              "value": "`${{ inputs.build_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Deploy field if not skipped
+          if [[ "${{ inputs.deploy_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "Deploy",
+              "value": "`${{ inputs.deploy_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Tests field if not skipped
+          if [[ "${{ inputs.test_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "Tests",
+              "value": "`${{ inputs.test_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Component Tests field if not skipped
+          if [[ "${{ inputs.component_test_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "Component",
+              "value": "`${{ inputs.component_test_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Frontend field if not skipped
+          if [[ "${{ inputs.frontend_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "Frontend",
+              "value": "`${{ inputs.frontend_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add E2E field if not skipped
+          if [[ "${{ inputs.e2e_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "E2E",
+              "value": "`${{ inputs.e2e_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Detekt field if not skipped
+          if [[ "${{ inputs.detekt_result }}" != "skipped" ]]; then
+            FIELDS+=',
+            {
+              "name": "Detekt",
+              "value": "`${{ inputs.detekt_result }}`",
+              "inline": true
+            }'
+          fi
+
+          # Add Commit field
+          FIELDS+=',
+            {
+              "name": "Commit",
+              "value": "`${{ github.sha }}`",
+              "inline": true
+            }'
+
+          FIELDS+=']'
+
+          # Write to file to preserve formatting
+          echo "$FIELDS" > /tmp/fields.json
+
+      - name: Send notification to Discord
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          COLOR_CODE: ${{ steps.status.outputs.color }}
+          WORKFLOW_NAME: ${{ inputs.workflow_name }}
+          PR_TITLE: ${{ inputs.pr_title }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          CUSTOM_TITLE: ${{ inputs.custom_title }}
+          CUSTOM_DESCRIPTION: ${{ inputs.custom_description }}
+          VERSION: ${{ inputs.version }}
         run: |
-          # Build PR info
-          PR_INFO=""
-          if [ -n "${{ inputs.pr_number }}" ]; then
-            PR_INFO="**PR #${{ inputs.pr_number }}**: ${{ inputs.pr_title }}"
+          # Determine title based on inputs
+          if [[ -n "$CUSTOM_TITLE" && "$CUSTOM_TITLE" != "" ]]; then
+            TITLE="$CUSTOM_TITLE"
+          elif [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "" ]]; then
+            TITLE="PR #${PR_NUMBER}: ${PR_TITLE}"
+          elif [[ -n "$VERSION" && "$VERSION" != "" ]]; then
+            TITLE="Deploy: vaultara v${VERSION}"
+          else
+            TITLE="${WORKFLOW_NAME}"
           fi
 
-          # Build mention
-          MENTION=""
-          if [ "${{ steps.status.outputs.overall }}" == "failure" ] && [ -n "${{ inputs.mention_on_failure }}" ]; then
-            MENTION="${{ inputs.mention_on_failure }} "
+          # Determine description
+          if [[ -n "$CUSTOM_DESCRIPTION" && "$CUSTOM_DESCRIPTION" != "" ]]; then
+            DESCRIPTION="$CUSTOM_DESCRIPTION"
+          elif [[ -n "$VERSION" && "$VERSION" != "" ]]; then
+            DESCRIPTION="Docker image pushed to Docker Hub"
+          else
+            DESCRIPTION="Workflow \`${WORKFLOW_NAME}\` on \`${{ github.repository }}\`"
           fi
 
-          # Build custom message
-          CUSTOM=""
-          if [ -n "${{ inputs.custom_message }}" ]; then
-            CUSTOM="\n${{ inputs.custom_message }}"
-          fi
+          FIELDS=$(cat /tmp/fields.json)
 
-          # Create payload
-          cat << 'PAYLOAD' > payload.json
-          {
-            "embeds": [{
-              "title": "${{ steps.status.outputs.emoji }} ${{ inputs.workflow_name }} - ${{ steps.status.outputs.overall }}",
-              "color": ${{ steps.status.outputs.color }},
-              "fields": [
-                {"name": "Build", "value": "${{ steps.emojis.outputs.build }} ${{ inputs.build_result }}", "inline": true},
-                {"name": "Unit Tests", "value": "${{ steps.emojis.outputs.test }} ${{ inputs.test_result }}", "inline": true},
-                {"name": "Component Tests", "value": "${{ steps.emojis.outputs.component }} ${{ inputs.component_test_result }}", "inline": true},
-                {"name": "Frontend", "value": "${{ steps.emojis.outputs.frontend }} ${{ inputs.frontend_result }}", "inline": true},
-                {"name": "Detekt", "value": "${{ steps.emojis.outputs.detekt }} ${{ inputs.detekt_result }}", "inline": true}
-              ],
-              "footer": {"text": "GitHub Actions"},
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            }]
-          }
-          PAYLOAD
-
-          # Add PR info if present
-          if [ -n "$PR_INFO" ]; then
-            jq --arg pr "$PR_INFO" '.embeds[0].description = $pr' payload.json > temp.json && mv temp.json payload.json
-          fi
-
-          # Add mention if needed
-          if [ -n "$MENTION" ]; then
-            jq --arg mention "$MENTION" '.content = $mention' payload.json > temp.json && mv temp.json payload.json
-          fi
-
-          curl -H "Content-Type: application/json" -X POST -d @payload.json "$DISCORD_WEBHOOK"
+          curl -X POST \
+          -H "Content-Type: application/json" \
+          -d '{
+            "embeds": [
+              {
+                "title": "'"$TITLE"'",
+                "description": "'"$DESCRIPTION"'",
+                "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                "color": '"$COLOR_CODE"',
+                "fields": '"$FIELDS"',
+                "footer": {
+                  "text": "GitHub Actions",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                },
+                "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+              }
+            ]
+          }' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
