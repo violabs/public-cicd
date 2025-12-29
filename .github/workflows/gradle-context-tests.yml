@@ -39,10 +39,10 @@ on:
         type: boolean
         default: true
       artifact-name:
-        description: 'Name for the test reports artifact'
+        description: 'Name for the test reports artifact (defaults to test-name with spaces replaced)'
         required: false
         type: string
-        default: 'context-test-reports'
+        default: ''
       reports-path:
         description: 'Path to test reports'
         required: false
@@ -80,9 +80,21 @@ jobs:
       - name: Run ${{ inputs.test-name }}
         run: ./gradlew ${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.gradle-args }}
 
+      - name: Generate artifact name
+        id: artifact
+        if: always() && inputs.upload-test-reports
+        run: |
+          if [ -n "${{ inputs.artifact-name }}" ]; then
+            echo "name=${{ inputs.artifact-name }}" >> "$GITHUB_OUTPUT"
+          else
+            # Convert test-name to artifact name: lowercase and replace spaces with dashes
+            NAME=$(echo "${{ inputs.test-name }}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')-reports
+            echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload test reports
         if: always() && inputs.upload-test-reports
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-name }}
+          name: ${{ steps.artifact.outputs.name }}
           path: ${{ inputs.reports-path }}

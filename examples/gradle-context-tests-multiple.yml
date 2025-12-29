@@ -1,0 +1,36 @@
+# Example: Multiple Context Tests Workflow
+# This example shows how to run multiple context test types in parallel
+# Each test type automatically gets a unique artifact name based on test-name
+# Copy this to your repository's .github/workflows/ directory and customize as needed
+
+name: Context Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'Unit Tests'           # -> artifact: unit-tests-reports
+      test-task: 'test'
+
+  integration-tests:
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'Integration Tests'    # -> artifact: integration-tests-reports
+      test-task: 'integrationTest'
+
+  component-tests:
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'Component Tests'      # -> artifact: component-tests-reports
+      test-task: 'testComponents'
+
+  e2e-tests:
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'E2E Tests'            # -> artifact: e2e-tests-reports
+      test-task: 'e2eTest'
+      artifact-name: 'custom-e2e-reports'  # Optional: override auto-generated name
