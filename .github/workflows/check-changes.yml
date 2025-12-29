@@ -48,21 +48,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine base ref
+      - name: Determine comparison strategy
         id: base-ref
         run: |
+          set -e
           if [ -n "${{ inputs.base-ref }}" ]; then
-            echo "ref=${{ inputs.base-ref }}" >> "$GITHUB_OUTPUT"
+            # Explicit base ref provided
+            echo "compare=origin/${{ inputs.base-ref }}...HEAD" >> "$GITHUB_OUTPUT"
+            echo "mode=branch" >> "$GITHUB_OUTPUT"
           elif [ -n "${{ github.base_ref }}" ]; then
-            echo "ref=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            # Pull request - compare against base branch
+            echo "compare=origin/${{ github.base_ref }}...HEAD" >> "$GITHUB_OUTPUT"
+            echo "mode=branch" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            # Push event - compare against previous commit
+            echo "compare=HEAD~1..HEAD" >> "$GITHUB_OUTPUT"
+            echo "mode=commit" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
+            # Fallback to main branch
+            echo "compare=origin/main...HEAD" >> "$GITHUB_OUTPUT"
+            echo "mode=branch" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check for changes
         id: check
         run: |
-          CHANGED_FILES=$(git diff --name-only origin/${{ steps.base-ref.outputs.ref }}...HEAD || echo "")
+          set -e
+          CHANGED_FILES=$(git diff --name-only ${{ steps.base-ref.outputs.compare }} 2>/dev/null || echo "")
 
           if [ -z "$CHANGED_FILES" ]; then
             echo "No changes detected"

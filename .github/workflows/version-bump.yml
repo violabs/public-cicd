@@ -1,0 +1,122 @@
+name: Version Bump
+
+on:
+  workflow_call:
+    inputs:
+      version-file:
+        description: 'Path to VERSION file'
+        required: false
+        type: string
+        default: 'VERSION'
+      bump-type:
+        description: 'Version component to bump (major, minor, patch)'
+        required: false
+        type: string
+        default: 'patch'
+      commit-message:
+        description: 'Commit message template (use {version} placeholder)'
+        required: false
+        type: string
+        default: 'chore: bump version to {version} [skip ci]'
+      git-user-name:
+        description: 'Git user name for commit'
+        required: false
+        type: string
+        default: 'github-actions[bot]'
+      git-user-email:
+        description: 'Git user email for commit'
+        required: false
+        type: string
+        default: 'github-actions[bot]@users.noreply.github.com'
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+    outputs:
+      old-version:
+        description: 'Version before bump'
+        value: ${{ jobs.bump.outputs.old_version }}
+      new-version:
+        description: 'Version after bump'
+        value: ${{ jobs.bump.outputs.new_version }}
+    secrets:
+      GIT_TOKEN:
+        description: 'Token for pushing (defaults to GITHUB_TOKEN if not provided)'
+        required: false
+
+jobs:
+  bump:
+    name: Bump Version
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      old_version: ${{ steps.bump.outputs.old_version }}
+      new_version: ${{ steps.bump.outputs.new_version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GIT_TOKEN || github.token }}
+          fetch-depth: 0
+
+      - name: Bump version
+        id: bump
+        env:
+          BUMP_TYPE: ${{ inputs.bump-type }}
+        run: |
+          set -e
+
+          if [ ! -f "${{ inputs.version-file }}" ]; then
+            echo "::error::Version file not found: ${{ inputs.version-file }}"
+            exit 1
+          fi
+
+          VERSION=$(cat "${{ inputs.version-file }}")
+          echo "old_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Parse version components
+          IFS='.' read -ra PARTS <<< "$VERSION"
+          MAJOR=${PARTS[0]:-0}
+          MINOR=${PARTS[1]:-0}
+          PATCH=${PARTS[2]:-0}
+
+          case "$BUMP_TYPE" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+            *)
+              echo "::error::Invalid bump type: $BUMP_TYPE"
+              exit 1
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "$NEW_VERSION" > "${{ inputs.version-file }}"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped version from $VERSION to $NEW_VERSION"
+
+      - name: Commit and push
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          COMMIT_TEMPLATE: ${{ inputs.commit-message }}
+        run: |
+          set -e
+          git config --local user.email "${{ inputs.git-user-email }}"
+          git config --local user.name "${{ inputs.git-user-name }}"
+
+          # Replace {version} placeholder in commit message
+          COMMIT_MSG="${COMMIT_TEMPLATE//\{version\}/$NEW_VERSION}"
+
+          git add "${{ inputs.version-file }}"
+          git commit -m "$COMMIT_MSG"
+          git push

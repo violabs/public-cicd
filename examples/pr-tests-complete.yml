@@ -33,10 +33,19 @@ jobs:
       mode: include
       include-patterns: '^frontend/'
 
+  # Detekt static analysis (runs early to fail fast on code style issues)
+  detekt-check:
+    name: Detekt
+    needs: check-backend
+    if: needs.check-backend.outputs.changed == 'true'
+    uses: violabs/public-cicd/.github/workflows/gradle-detekt.yml@main
+    with:
+      java-version: '21'
+
   # Fast-fail build check
   build-check:
     name: Build Check
-    needs: check-backend
+    needs: [check-backend, detekt-check]
     if: needs.check-backend.outputs.changed == 'true'
     uses: violabs/public-cicd/.github/workflows/gradle-build.yml@main
     with:
@@ -66,15 +75,49 @@ jobs:
       min-coverage-overall: 40
       min-coverage-changed-files: 40
 
-  # Context tests
-  context-tests:
-    name: Context Tests
+  # Context tests - each test type runs in parallel with unique artifact names
+  component-tests:
+    name: Component Tests
     needs: [check-backend, build-check]
     if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
     uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
     with:
+      test-name: 'Component Tests'
       java-version: '21'
       test-task: 'testComponents'
+      exclude-tasks: 'npmInstall'
+
+  api-tests:
+    name: API Tests
+    needs: [check-backend, build-check]
+    if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'API Tests'
+      java-version: '21'
+      test-task: 'testApi'
+      exclude-tasks: 'npmInstall'
+
+  repo-slice-tests:
+    name: Repo Slice Tests
+    needs: [check-backend, build-check]
+    if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'Repo Slice Tests'
+      java-version: '21'
+      test-task: 'testRepoSlices'
+      exclude-tasks: 'npmInstall'
+
+  flow-tests:
+    name: Flow Tests
+    needs: [check-backend, build-check]
+    if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
+    with:
+      test-name: 'Flow Tests'
+      java-version: '21'
+      test-task: 'testFlows'
       exclude-tasks: 'npmInstall'
 
   # Frontend unit tests
@@ -100,31 +143,37 @@ jobs:
       test-command: 'npm run test:e2e'
       playwright-browsers: 'chromium'
 
-  # Detekt static analysis with matrix
-  detekt-check:
-    needs: determine-modules
-    if: needs.determine-modules.outputs.has-modules == 'true'
-    uses: violabs/public-cicd/.github/workflows/gradle-detekt-matrix.yml@main
-    with:
-      java-version: '21'
-      modules-json: ${{ needs.determine-modules.outputs.matrix }}
-      fail-fast: true
-
   # Discord notification
   notify-discord:
     name: Notify Discord
-    needs: [check-backend, build-check, unit-tests, context-tests, frontend-unit-tests, frontend-e2e-tests, detekt-check]
+    needs:
+      - check-backend
+      - build-check
+      - unit-tests
+      - component-tests
+      - api-tests
+      - repo-slice-tests
+      - flow-tests
+      - frontend-unit-tests
+      - frontend-e2e-tests
+      - detekt-check
     if: always()
     uses: violabs/public-cicd/.github/workflows/notify-discord.yml@main
     with:
       workflow_name: ${{ github.workflow }}
       build_result: ${{ needs.build-check.result }}
       test_result: ${{ needs.unit-tests.result }}
-      context_tests_json: '{"Context Tests": "${{ needs.context-tests.result }}"}'
+      context_tests_json: >
+        {
+          "Component Tests": "${{ needs.component-tests.result }}",
+          "API Tests": "${{ needs.api-tests.result }}",
+          "Repo Slice Tests": "${{ needs.repo-slice-tests.result }}",
+          "Flow Tests": "${{ needs.flow-tests.result }}"
+        }
       frontend_result: ${{ needs.frontend-unit-tests.result }}
       e2e_result: ${{ needs.frontend-e2e-tests.result }}
       detekt_result: ${{ needs.detekt-check.result }}
       pr_title: ${{ github.event.pull_request.title }}
       pr_number: ${{ github.event.pull_request.number }}
     secrets:
-      DISCORD_WEBHOOK_URL: ${{ secrets.PRIVATE_BUILD_HOOK_URL }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

@@ -1,0 +1,47 @@
+# Example: Deploy to DigitalOcean via SSH
+# This example shows how to deploy a Docker Compose application to a DigitalOcean droplet
+# Copy this to your repository's .github/workflows/ directory and customize as needed
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # Basic deployment with defaults
+  deploy-simple:
+    uses: violabs/public-cicd/.github/workflows/deploy-digitalocean-ssh.yml@main
+    secrets:
+      DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+      DO_HOST: ${{ secrets.DO_HOST }}
+      DO_USER: ${{ secrets.DO_USER }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # Full deployment with all options
+  deploy-full:
+    uses: violabs/public-cicd/.github/workflows/deploy-digitalocean-ssh.yml@main
+    with:
+      remote-directory: '~/myapp'
+      compose-file: 'docker-compose.prod.yml'
+      compose-profile: 'production'
+    secrets:
+      DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+      DO_HOST: ${{ secrets.DO_HOST }}
+      DO_USER: ${{ secrets.DO_USER }}
+      DO_KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}  # Recommended for security
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+# Required secrets:
+#   DO_SSH_KEY        - Private SSH key (ed25519) for connecting to the droplet
+#   DO_HOST           - Droplet IP address or hostname
+#   DO_USER           - SSH username (e.g., 'root' or 'deploy')
+#   DOCKERHUB_USERNAME - Docker Hub username for pulling images
+#   DOCKERHUB_TOKEN    - Docker Hub access token
+#
+# Optional secrets:
+#   DO_KNOWN_HOSTS    - Known hosts entry for the droplet (prevents TOFU attacks)
+#                       Generate with: ssh-keyscan -H <your-droplet-ip>

@@ -1,0 +1,123 @@
+name: Deploy to DigitalOcean via SSH
+
+on:
+  workflow_call:
+    inputs:
+      remote-directory:
+        description: 'Remote directory for deployment'
+        required: false
+        type: string
+        default: '~/app'
+      compose-file:
+        description: 'Docker compose file to copy'
+        required: false
+        type: string
+        default: 'docker-compose.yml'
+      compose-profile:
+        description: 'Docker compose profile to use'
+        required: false
+        type: string
+        default: ''
+      runs-on:
+        description: 'Runner to use'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+    secrets:
+      DO_SSH_KEY:
+        required: true
+      DO_HOST:
+        required: true
+      DO_USER:
+        required: true
+      DO_KNOWN_HOSTS:
+        description: 'Known hosts entry. If omitted, uses ssh-keyscan (TOFU risk)'
+        required: false
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ${{ inputs.runs-on }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}
+          DO_HOST: ${{ secrets.DO_HOST }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          if [ -n "$KNOWN_HOSTS" ]; then
+            echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::Using ssh-keyscan (TOFU). Consider providing DO_KNOWN_HOSTS for better security."
+            ssh-keyscan -H "$DO_HOST" >> ~/.ssh/known_hosts
+          fi
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Prepare remote directory
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+        run: |
+          set -e
+          ssh -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=yes \
+              "$DO_USER@$DO_HOST" "mkdir -p ${{ inputs.remote-directory }}"
+
+      - name: Copy compose file to server
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+        run: |
+          set -e
+          scp -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=yes \
+              "${{ inputs.compose-file }}" \
+              "$DO_USER@$DO_HOST:${{ inputs.remote-directory }}/docker-compose.yml"
+
+      - name: Deploy
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          REMOTE_DIR: ${{ inputs.remote-directory }}
+          COMPOSE_PROFILE: ${{ inputs.compose-profile }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=yes \
+              "$DO_USER@$DO_HOST" \
+              "DOCKERHUB_USERNAME='$DOCKERHUB_USERNAME' DOCKERHUB_TOKEN='$DOCKERHUB_TOKEN' REMOTE_DIR='$REMOTE_DIR' COMPOSE_PROFILE='$COMPOSE_PROFILE' bash -s" <<'EOF'
+          set -e
+          cd "$REMOTE_DIR"
+
+          echo "Logging into Docker Hub..."
+          echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+          echo "Pulling latest images..."
+          if [ -n "$COMPOSE_PROFILE" ]; then
+            docker compose --profile "$COMPOSE_PROFILE" pull
+            docker compose --profile "$COMPOSE_PROFILE" up -d
+          else
+            docker compose pull
+            docker compose up -d
+          fi
+
+          echo "Deployment complete."
+          EOF
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

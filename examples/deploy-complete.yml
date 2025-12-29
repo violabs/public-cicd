@@ -1,0 +1,113 @@
+# Example: Complete Deploy Workflow
+# This example shows how to use all reusable workflows for a full CI/CD deploy pipeline
+# Copy this to your repository's .github/workflows/ directory and customize as needed
+
+name: Build and Deploy
+run-name: Deploy by ${{ github.actor }}
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_version_bump:
+        description: 'Skip version bump'
+        required: false
+        default: false
+        type: boolean
+
+# Ensure only one deploy runs at a time - queue new runs, don't cancel in-progress
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  # Check if code changed (skip deploy for docs-only or CI-only changes)
+  check-code-changes:
+    name: Check Code Changes
+    uses: violabs/public-cicd/.github/workflows/check-changes.yml@main
+    with:
+      mode: exclude
+      exclude-patterns: '^(\.github/|docs/)'
+
+  # Build and push Docker image
+  build-and-push:
+    name: Build Docker Image
+    needs: check-code-changes
+    if: needs.check-code-changes.outputs.changed == 'true'
+    uses: violabs/public-cicd/.github/workflows/docker-build-push.yml@main
+    with:
+      image-name: ${{ vars.DOCKERHUB_USERNAME }}/myapp  # Or use secrets via env
+      version-file: 'VERSION'
+      platforms: 'linux/amd64'
+      # Optional: add build args
+      # build-args: |
+      #   BUILD_ENV=production
+      #   API_URL=https://api.example.com
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # Deploy to server
+  deploy:
+    name: Deploy to DigitalOcean
+    needs: [check-code-changes, build-and-push]
+    if: needs.check-code-changes.outputs.changed == 'true'
+    uses: violabs/public-cicd/.github/workflows/deploy-digitalocean-ssh.yml@main
+    with:
+      remote-directory: '~/myapp'
+      compose-file: 'docker-compose.yml'
+      compose-profile: 'prod'
+    secrets:
+      DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+      DO_HOST: ${{ secrets.DO_HOST }}
+      DO_USER: ${{ secrets.DO_USER }}
+      DO_KNOWN_HOSTS: ${{ secrets.DO_KNOWN_HOSTS }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # Bump version after successful deploy
+  version-bump:
+    name: Bump Version
+    needs: [check-code-changes, deploy]
+    if: |
+      needs.check-code-changes.outputs.changed == 'true' &&
+      needs.deploy.result == 'success' &&
+      github.event.inputs.skip_version_bump != 'true'
+    uses: violabs/public-cicd/.github/workflows/version-bump.yml@main
+    with:
+      version-file: 'VERSION'
+      bump-type: 'patch'
+      commit-message: 'chore: bump version to {version} [skip ci]'
+
+  # Discord notification
+  notify-discord:
+    name: Notify Discord
+    needs: [check-code-changes, build-and-push, deploy, version-bump]
+    if: always()
+    uses: violabs/public-cicd/.github/workflows/notify-discord.yml@main
+    with:
+      workflow_name: ${{ github.workflow }}
+      build_result: ${{ needs.build-and-push.result }}
+      deploy_result: ${{ needs.deploy.result }}
+      version: ${{ needs.build-and-push.outputs.version }}
+      next_version: ${{ needs.version-bump.outputs.new-version }}
+    secrets:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+# Required secrets:
+#   DOCKERHUB_USERNAME  - Docker Hub username
+#   DOCKERHUB_TOKEN     - Docker Hub access token
+#   DO_SSH_KEY          - Private SSH key for server access
+#   DO_HOST             - Server hostname or IP
+#   DO_USER             - SSH username
+#   DO_KNOWN_HOSTS      - Known hosts entry (recommended)
+#   DISCORD_WEBHOOK_URL - Discord webhook for notifications
+#
+# Required repository variables (Settings > Secrets and variables > Actions > Variables):
+#   DOCKERHUB_USERNAME  - Docker Hub username (can also use secret)
+#
+# Required files:
+#   VERSION             - File containing semver version (e.g., "1.0.0")
+#   docker-compose.yml  - Docker Compose file for deployment
+#   Dockerfile          - Dockerfile for building the image
