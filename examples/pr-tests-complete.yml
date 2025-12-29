@@ -66,13 +66,14 @@ jobs:
       min-coverage-overall: 40
       min-coverage-changed-files: 40
 
-  # Component tests
-  component-tests:
+  # Context tests
+  context-tests:
     needs: [check-backend, build-check]
     if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
-    uses: violabs/public-cicd/.github/workflows/gradle-component-tests.yml@main
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
     with:
       java-version: '21'
+      test-task: 'testComponents'
       exclude-tasks: 'npmInstall'
 
   # Frontend unit tests
@@ -111,14 +112,14 @@ jobs:
   # Discord notification
   notify-discord:
     name: Notify Discord
-    needs: [check-backend, build-check, unit-tests, component-tests, frontend-unit-tests, frontend-e2e-tests, detekt-check]
+    needs: [check-backend, build-check, unit-tests, context-tests, frontend-unit-tests, frontend-e2e-tests, detekt-check]
     if: always()
     uses: violabs/public-cicd/.github/workflows/notify-discord.yml@main
     with:
       workflow_name: ${{ github.workflow }}
       build_result: ${{ needs.build-check.result }}
       test_result: ${{ needs.unit-tests.result }}
-      component_test_result: ${{ needs.component-tests.result }}
+      component_test_result: ${{ needs.context-tests.result }}
       frontend_result: ${{ needs.frontend-unit-tests.result }}
       e2e_result: ${{ needs.frontend-e2e-tests.result }}
       detekt_result: ${{ needs.detekt-check.result }}

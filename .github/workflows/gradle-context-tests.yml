@@ -1,4 +1,4 @@
-name: Gradle Component Tests
+name: Gradle Context Tests
 
 on:
   workflow_call:
@@ -7,7 +7,7 @@ on:
         description: 'Display name for this test type'
         required: false
         type: string
-        default: 'Component Tests'
+        default: 'Context Tests'
       java-version:
         description: 'Java version to use'
         required: false
@@ -42,7 +42,7 @@ on:
         description: 'Name for the test reports artifact'
         required: false
         type: string
-        default: 'component-test-reports'
+        default: 'context-test-reports'
       reports-path:
         description: 'Path to test reports'
         required: false
@@ -55,7 +55,7 @@ on:
         default: 'ubuntu-latest'
 
 jobs:
-  component-tests:
+  context-tests:
     name: ${{ inputs.test-name }}
     runs-on: ${{ contains(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
     steps:

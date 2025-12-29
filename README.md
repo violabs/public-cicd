@@ -23,7 +23,7 @@ jobs:
 | [`check-changes.yml`](.github/workflows/check-changes.yml)                   | Detect file changes based on include/exclude patterns |
 | [`gradle-build.yml`](.github/workflows/gradle-build.yml)                     | Fast-fail Gradle build check                          |
 | [`gradle-unit-tests.yml`](.github/workflows/gradle-unit-tests.yml)           | Run unit tests with Kover coverage                    |
-| [`gradle-component-tests.yml`](.github/workflows/gradle-component-tests.yml) | Run component/integration tests                       |
+| [`gradle-context-tests.yml`](.github/workflows/gradle-context-tests.yml)     | Run context/integration tests                         |
 | [`gradle-matrix-tests.yml`](.github/workflows/gradle-matrix-tests.yml)       | Run tests across multiple modules in parallel         |
 | [`gradle-detekt.yml`](.github/workflows/gradle-detekt.yml)                   | Detekt static analysis for single module              |
 | [`gradle-detekt-matrix.yml`](.github/workflows/gradle-detekt-matrix.yml)     | Detekt analysis across multiple modules               |
@@ -125,18 +125,19 @@ jobs:
 
 ---
 
-### gradle-component-tests.yml
+### gradle-context-tests.yml
 
-Run component/integration tests.
+Run context/integration tests.
 
 ```yaml
 jobs:
-  component-tests:
-    uses: violabs/public-cicd/.github/workflows/gradle-component-tests.yml@main
+  context-tests:
+    uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
     with:
+      test-name: 'Context Tests'                 # Display name
       test-task: 'testComponents'                # Default: 'testComponents'
       exclude-tasks: 'npmInstall'
-      artifact-name: 'component-test-reports'
+      artifact-name: 'context-test-reports'
 ```
 
 ---
