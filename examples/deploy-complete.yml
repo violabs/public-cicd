@@ -37,7 +37,8 @@ jobs:
     if: needs.check-code-changes.outputs.changed == 'true'
     uses: violabs/public-cicd/.github/workflows/docker-build-push.yml@main
     with:
-      image-name: ${{ vars.DOCKERHUB_USERNAME }}/myapp  # Or use secrets via env
+      image-name: 'myusername/myapp'  # Full image name: username/repo
+      # registry: 'docker.io'         # Default, change for ghcr.io etc.
       version-file: 'VERSION'
       platforms: 'linux/amd64'
       # Optional: add build args
