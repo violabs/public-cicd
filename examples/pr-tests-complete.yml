@@ -51,8 +51,7 @@ jobs:
     if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
     uses: violabs/public-cicd/.github/workflows/gradle-detect-modules.yml@main
     with:
-      detection-command: './gradlew -q detectChangedModules'
-      output-pattern: 'MATRIX='
+      java-version: '21'
 
   # Unit tests with matrix strategy
   unit-tests:

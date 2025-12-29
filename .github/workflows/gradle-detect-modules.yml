@@ -3,26 +3,16 @@ name: Detect Changed Gradle Modules
 on:
   workflow_call:
     inputs:
-      base-ref:
-        description: 'Base branch to compare against'
+      java-version:
+        description: 'Java version to use'
         required: false
         type: string
-        default: ''
-      detection-command:
-        description: 'Command to detect modules (should output JSON array)'
+        default: '21'
+      java-distribution:
+        description: 'Java distribution'
         required: false
         type: string
-        default: './gradlew -q detectChangedModules'
-      output-pattern:
-        description: 'Grep pattern to extract matrix from command output'
-        required: false
-        type: string
-        default: 'MATRIX='
-      fallback-matrix:
-        description: 'Fallback matrix if detection fails or no changes'
-        required: false
-        type: string
-        default: '[]'
+        default: 'temurin'
       runs-on:
         description: 'Runner to use (string or JSON array for labels)'
         required: false
@@ -48,48 +38,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Determine base ref
-        id: base-ref
-        run: |
-          if [ -n "${{ inputs.base-ref }}" ]; then
-            echo "ref=${{ inputs.base-ref }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.base_ref }}" ]; then
-            echo "ref=${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-          fi
+      - uses: violabs/public-cicd/.github/actions/setup-java-gradle@main
+        with:
+          java-version: ${{ inputs.java-version }}
+          java-distribution: ${{ inputs.java-distribution }}
 
-      - name: Detect affected modules
+      - name: Determine affected modules
         id: set-matrix
         run: |
-          # Try to run the detection command
-          if OUTPUT=$(${{ inputs.detection-command }} 2>/dev/null); then
-            # Extract matrix using the pattern
-            if [ -n "${{ inputs.output-pattern }}" ]; then
-              MATRIX=$(echo "$OUTPUT" | grep '${{ inputs.output-pattern }}' | cut -d'=' -f2- || echo "")
-            else
-              MATRIX="$OUTPUT"
-            fi
-          fi
-
-          # Use fallback if matrix is empty or invalid
-          if [ -z "$MATRIX" ] || [ "$MATRIX" = "null" ]; then
-            MATRIX="${{ inputs.fallback-matrix }}"
-          fi
-
-          # Validate JSON
-          if ! echo "$MATRIX" | jq empty 2>/dev/null; then
-            echo "Warning: Invalid JSON, using fallback"
-            MATRIX="${{ inputs.fallback-matrix }}"
-          fi
-
+          MATRIX=$(./gradlew -q detectChangedModules | grep 'MATRIX=' | cut -d'=' -f2-)
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
-          # Check if matrix has modules
           if [ "$MATRIX" = "[]" ] || [ -z "$MATRIX" ]; then
             echo "has-modules=false" >> "$GITHUB_OUTPUT"
           else
             echo "has-modules=true" >> "$GITHUB_OUTPUT"
           fi
 
-          echo "Detected modules: $MATRIX"
+      - name: Debug Output
+        run: |
+          echo "Detected modules: ${{ steps.set-matrix.outputs.matrix }}"
+          echo "Has modules: ${{ steps.set-matrix.outputs.has-modules }}"
