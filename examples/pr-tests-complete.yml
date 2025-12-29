@@ -68,6 +68,7 @@ jobs:
 
   # Context tests
   context-tests:
+    name: Context Tests
     needs: [check-backend, build-check]
     if: needs.check-backend.outputs.changed == 'true' && needs.build-check.result == 'success'
     uses: violabs/public-cicd/.github/workflows/gradle-context-tests.yml@main
