@@ -16,12 +16,21 @@ on:
       - 'package*.json'
 
 jobs:
-  test:
-    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-tests-npm.yml@main
+  # Unit tests (run in parallel with E2E)
+  unit-tests:
+    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-unit-tests-npm.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'
       cache-dependency-path: 'frontend/package-lock.json'
       test-command: 'npm run test:coverage'
-      install-playwright: true
+
+  # E2E tests (run in parallel with unit tests)
+  e2e-tests:
+    uses: YOUR_ORG/public-cicd/.github/workflows/frontend-e2e-tests-npm.yml@main
+    with:
+      node-version: '22'
+      working-directory: 'frontend'
+      cache-dependency-path: 'frontend/package-lock.json'
+      test-command: 'npm run test:e2e'
       playwright-browsers: 'chromium'

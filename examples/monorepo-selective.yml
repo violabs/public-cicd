@@ -73,11 +73,20 @@ jobs:
     with:
       java-version: '21'
 
-  # Frontend tests
-  frontend-tests:
+  # Frontend unit tests
+  frontend-unit-tests:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
-    uses: violabs/public-cicd/.github/workflows/frontend-tests-npm.yml@main
+    uses: violabs/public-cicd/.github/workflows/frontend-unit-tests-npm.yml@main
+    with:
+      node-version: '22'
+      working-directory: 'frontend'
+
+  # Frontend E2E tests
+  frontend-e2e-tests:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    uses: violabs/public-cicd/.github/workflows/frontend-e2e-tests-npm.yml@main
     with:
       node-version: '22'
       working-directory: 'frontend'
