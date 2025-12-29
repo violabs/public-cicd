@@ -95,6 +95,8 @@ jobs:
           ssh -o StrictHostKeyChecking=yes "$DO_USER@$DO_HOST" \
               "DOCKERHUB_USERNAME='$DOCKERHUB_USERNAME' DOCKERHUB_TOKEN='$DOCKERHUB_TOKEN' REMOTE_DIR='$REMOTE_DIR' COMPOSE_PROFILE='$COMPOSE_PROFILE' bash -s" <<'EOF'
           set -e
+          # Expand ~ to $HOME if present
+          REMOTE_DIR="${REMOTE_DIR/#\~/$HOME}"
           cd "$REMOTE_DIR"
 
           echo "Logging into Docker Hub..."
