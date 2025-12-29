@@ -17,11 +17,11 @@ on:
         required: false
         type: string
         default: 'skipped'
-      component_test_result:
-        description: 'Result of component test job'
+      context_tests_json:
+        description: 'JSON object of context test results, e.g. {"Context Tests": "success", "API Tests": "failure"}'
         required: false
         type: string
-        default: 'skipped'
+        default: '{}'
       frontend_result:
         description: 'Result of frontend test job'
         required: false
@@ -73,7 +73,7 @@ on:
         type: string
         default: ''
       runs-on:
-        description: 'Runner to use'
+        description: 'Runner to use (string or JSON array for labels)'
         required: false
         type: string
         default: 'ubuntu-latest'
@@ -85,7 +85,7 @@ on:
 jobs:
   notify:
     name: Send Discord Notification
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ contains(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
     steps:
       - name: Determine overall status
         id: status
@@ -93,14 +93,23 @@ jobs:
           # Check if any job failed (ignore skipped jobs)
           FAILED=false
           for result in "${{ inputs.build_result }}" "${{ inputs.test_result }}" \
-                        "${{ inputs.component_test_result }}" "${{ inputs.frontend_result }}" \
-                        "${{ inputs.e2e_result }}" "${{ inputs.detekt_result }}" \
-                        "${{ inputs.deploy_result }}"; do
+                        "${{ inputs.frontend_result }}" "${{ inputs.e2e_result }}" \
+                        "${{ inputs.detekt_result }}" "${{ inputs.deploy_result }}"; do
             if [[ "$result" == "failure" ]]; then
               FAILED=true
               break
             fi
           done
+
+          # Check context tests JSON for failures
+          if [[ "$FAILED" == "false" ]]; then
+            CONTEXT_TESTS='${{ inputs.context_tests_json }}'
+            if [[ -n "$CONTEXT_TESTS" && "$CONTEXT_TESTS" != "{}" ]]; then
+              if echo "$CONTEXT_TESTS" | jq -e 'to_entries[] | select(.value == "failure")' > /dev/null 2>&1; then
+                FAILED=true
+              fi
+            fi
+          fi
 
           if [[ "$FAILED" == "true" ]]; then
             echo "status=failure" >> "$GITHUB_OUTPUT"
@@ -181,14 +190,21 @@ jobs:
             }'
           fi
 
-          # Add Component Tests field if not skipped
-          if [[ "${{ inputs.component_test_result }}" != "skipped" ]]; then
-            FIELDS+=',
+          # Add Context Tests fields from JSON
+          CONTEXT_TESTS='${{ inputs.context_tests_json }}'
+          if [[ -n "$CONTEXT_TESTS" && "$CONTEXT_TESTS" != "{}" ]]; then
+            while IFS= read -r entry; do
+              name=$(echo "$entry" | jq -r '.key')
+              value=$(echo "$entry" | jq -r '.value')
+              if [[ "$value" != "skipped" && -n "$name" ]]; then
+                FIELDS+=",
             {
-              "name": "Component",
-              "value": "`${{ inputs.component_test_result }}`",
-              "inline": true
-            }'
+              \"name\": \"$name\",
+              \"value\": \"\`$value\`\",
+              \"inline\": true
+            }"
+              fi
+            done < <(echo "$CONTEXT_TESTS" | jq -c 'to_entries[]')
           fi
 
           # Add Frontend field if not skipped

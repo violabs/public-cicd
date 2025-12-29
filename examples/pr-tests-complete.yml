@@ -119,7 +119,7 @@ jobs:
       workflow_name: ${{ github.workflow }}
       build_result: ${{ needs.build-check.result }}
       test_result: ${{ needs.unit-tests.result }}
-      component_test_result: ${{ needs.context-tests.result }}
+      context_tests_json: '{"Context Tests": "${{ needs.context-tests.result }}"}'
       frontend_result: ${{ needs.frontend-unit-tests.result }}
       e2e_result: ${{ needs.frontend-e2e-tests.result }}
       detekt_result: ${{ needs.detekt-check.result }}
