@@ -1,0 +1,143 @@
+name: Gradle Task with Commit
+
+on:
+  workflow_call:
+    inputs:
+      gradle-task:
+        description: 'Gradle task to run (e.g., spotlessApply, generateProtos)'
+        required: true
+        type: string
+      gradle-args:
+        description: 'Additional Gradle arguments'
+        required: false
+        type: string
+        default: '--no-daemon'
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      java-distribution:
+        description: 'Java distribution'
+        required: false
+        type: string
+        default: 'temurin'
+      commit-message:
+        description: 'Commit message for changes (use {task} placeholder for task name)'
+        required: false
+        type: string
+        default: 'chore: apply {task} changes [skip ci]'
+      git-user-name:
+        description: 'Git user name for commit'
+        required: false
+        type: string
+        default: 'github-actions[bot]'
+      git-user-email:
+        description: 'Git user email for commit'
+        required: false
+        type: string
+        default: 'github-actions[bot]@users.noreply.github.com'
+      paths-to-commit:
+        description: 'Paths to stage for commit (space-separated). Use "." for all changes'
+        required: false
+        type: string
+        default: '.'
+      fail-on-changes:
+        description: 'Fail the workflow if changes are detected (useful for CI checks)'
+        required: false
+        type: boolean
+        default: false
+      runs-on:
+        description: 'Runner to use (string or JSON array for labels)'
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+    outputs:
+      task-result:
+        description: 'Gradle task result (success/failure)'
+        value: ${{ jobs.gradle-task.outputs.task_result }}
+      changes-detected:
+        description: 'Whether changes were detected after running the task'
+        value: ${{ jobs.gradle-task.outputs.changes_detected }}
+      changes-committed:
+        description: 'Whether changes were committed and pushed'
+        value: ${{ jobs.gradle-task.outputs.changes_committed }}
+    secrets:
+      GIT_TOKEN:
+        description: 'Token for pushing (defaults to GITHUB_TOKEN if not provided)'
+        required: false
+
+jobs:
+  gradle-task:
+    name: Run ${{ inputs.gradle-task }}
+    runs-on: ${{ contains(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
+    outputs:
+      task_result: ${{ steps.gradle.outcome }}
+      changes_detected: ${{ steps.check-changes.outputs.changes_detected }}
+      changes_committed: ${{ steps.commit.outputs.committed }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GIT_TOKEN || github.token }}
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ inputs.java-distribution }}
+          java-version: ${{ inputs.java-version }}
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Gradle task
+        id: gradle
+        run: ./gradlew ${{ inputs.gradle-task }} ${{ inputs.gradle-args }}
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes_detected=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected after running ${{ inputs.gradle-task }}:"
+            git status --short
+          else
+            echo "changes_detected=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected after running ${{ inputs.gradle-task }}"
+          fi
+
+      - name: Fail if changes detected (check mode)
+        if: inputs.fail-on-changes == true && steps.check-changes.outputs.changes_detected == 'true'
+        run: |
+          echo "::error::Changes detected after running '${{ inputs.gradle-task }}'. Please run the task locally and commit the changes."
+          git diff
+          exit 1
+
+      - name: Commit and push changes
+        id: commit
+        if: inputs.fail-on-changes == false && steps.check-changes.outputs.changes_detected == 'true'
+        env:
+          TASK_NAME: ${{ inputs.gradle-task }}
+          COMMIT_TEMPLATE: ${{ inputs.commit-message }}
+        run: |
+          set -e
+          git config --local user.email "${{ inputs.git-user-email }}"
+          git config --local user.name "${{ inputs.git-user-name }}"
+
+          # Replace {task} placeholder in commit message
+          COMMIT_MSG="${COMMIT_TEMPLATE//\{task\}/$TASK_NAME}"
+
+          git add ${{ inputs.paths-to-commit }}
+          git commit -m "$COMMIT_MSG"
+          git push
+
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+          echo "Changes committed and pushed successfully"
+
+      - name: Set no commit output
+        if: steps.commit.outcome == 'skipped' || steps.check-changes.outputs.changes_detected == 'false'
+        run: echo "committed=false" >> "$GITHUB_OUTPUT"
