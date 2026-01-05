@@ -22,6 +22,18 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Stop Gradle daemons
+      shell: bash
+      run: pkill -f GradleDaemon || true
+
+    - name: Cleanup corrupted Gradle caches
+      shell: bash
+      run: |
+        rm -rf ~/.gradle/caches/modules-2/files-2.1
+        rm -rf ~/.gradle/caches/jars-*
+        rm -rf ~/.gradle/caches/transforms-*
+        rm -rf ~/.gradle/caches/build-cache-*
+
     - name: Set up JDK ${{ inputs.java-version }}
       uses: actions/setup-java@v4
       with:
