@@ -1,0 +1,36 @@
+# Example: Gradle Task with Auto-Commit
+# Runs a Gradle task and commits any resulting changes back to the PR branch
+# Common use cases: code formatting, code generation, dependency updates
+
+name: Auto-Format
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Example 1: Auto-format code with Spotless
+  format:
+    uses: violabs/public-cicd/.github/workflows/gradle-task-commit.yml@main
+    with:
+      gradle-task: spotlessApply
+      commit-message: 'style: auto-format code [skip ci]'
+    secrets:
+      GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Example 2: Generate protobuf files
+  # generate-protos:
+  #   uses: violabs/public-cicd/.github/workflows/gradle-task-commit.yml@main
+  #   with:
+  #     gradle-task: generateProto
+  #     commit-message: 'chore: regenerate protobuf files [skip ci]'
+  #     paths-to-commit: 'src/main/generated'
+  #   secrets:
+  #     GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Example 3: Check mode - fail if formatting changes are needed
+  # format-check:
+  #   uses: violabs/public-cicd/.github/workflows/gradle-task-commit.yml@main
+  #   with:
+  #     gradle-task: spotlessApply
+  #     fail-on-changes: true
