@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: 'detekt'
+      no-daemon:
+        description: 'Run Gradle with --no-daemon flag'
+        required: false
+        type: boolean
+        default: true
       gradle-args:
         description: 'Additional Gradle arguments'
         required: false
@@ -42,4 +47,4 @@ jobs:
           java-version: ${{ inputs.java-version }}
 
       - name: Run Detekt
-        run: ./gradlew ${{ inputs.detekt-task }} ${{ inputs.gradle-args }}
+        run: ./gradlew ${{ inputs.detekt-task }} ${{ inputs.no-daemon && '--no-daemon' || '' }} ${{ inputs.gradle-args }}

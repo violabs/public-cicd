@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: 'temurin'
+      no-daemon:
+        description: 'Run Gradle with --no-daemon flag'
+        required: false
+        type: boolean
+        default: true
       runs-on:
         description: 'Runner to use (string or JSON array for labels)'
         required: false
@@ -45,8 +50,10 @@ jobs:
 
       - name: Determine affected modules
         id: set-matrix
+        env:
+          NO_DAEMON_FLAG: ${{ inputs.no-daemon && '--no-daemon' || '' }}
         run: |
-          MATRIX=$(./gradlew -q detectChangedModules | grep 'MATRIX=' | cut -d'=' -f2-)
+          MATRIX=$(./gradlew -q detectChangedModules $NO_DAEMON_FLAG | grep 'MATRIX=' | cut -d'=' -f2-)
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
           if [ "$MATRIX" = "[]" ] || [ -z "$MATRIX" ]; then

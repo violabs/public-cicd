@@ -37,6 +37,11 @@ on:
         required: false
         type: string
         default: ''
+      no-daemon:
+        description: 'Run Gradle with --no-daemon flag'
+        required: false
+        type: boolean
+        default: true
       gradle-args:
         description: 'Additional Gradle arguments'
         required: false
@@ -113,21 +118,23 @@ jobs:
           echo "args=$EXCLUDES" >> "$GITHUB_OUTPUT"
 
       - name: Run tests for ${{ matrix.module-namespace.module }}
+        env:
+          NO_DAEMON_FLAG: ${{ inputs.no-daemon && '--no-daemon' || '' }}
         run: |
           MODULE="${{ matrix.module-namespace.module }}"
           if [ "$MODULE" == ":src" ] || [ -z "$MODULE" ]; then
             # Root project
             if [ "${{ inputs.coverage-enabled }}" == "true" ]; then
-              ./gradlew ${{ inputs.test-task }} -Pkover ${{ inputs.coverage-report-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.gradle-args }}
+              ./gradlew ${{ inputs.test-task }} -Pkover ${{ inputs.coverage-report-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
             else
-              ./gradlew ${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.gradle-args }}
+              ./gradlew ${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
             fi
           else
             # Module-specific
             if [ "${{ inputs.coverage-enabled }}" == "true" ]; then
-              ./gradlew ${MODULE}:${{ inputs.test-task }} -Pkover ${MODULE}:${{ inputs.coverage-report-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.gradle-args }}
+              ./gradlew ${MODULE}:${{ inputs.test-task }} -Pkover ${MODULE}:${{ inputs.coverage-report-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
             else
-              ./gradlew ${MODULE}:${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.gradle-args }}
+              ./gradlew ${MODULE}:${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
             fi
           fi
 

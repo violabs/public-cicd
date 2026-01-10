@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: ''
+      no-daemon:
+        description: 'Run Gradle with --no-daemon flag'
+        required: false
+        type: boolean
+        default: true
       gradle-args:
         description: 'Additional Gradle arguments'
         required: false
@@ -78,7 +83,7 @@ jobs:
           echo "args=$EXCLUDES" >> "$GITHUB_OUTPUT"
 
       - name: Run ${{ inputs.test-name }}
-        run: ./gradlew ${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.gradle-args }}
+        run: ./gradlew ${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} ${{ inputs.no-daemon && '--no-daemon' || '' }} ${{ inputs.gradle-args }}
 
       - name: Generate artifact name
         id: artifact

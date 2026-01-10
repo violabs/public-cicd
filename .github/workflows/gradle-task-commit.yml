@@ -7,11 +7,16 @@ on:
         description: 'Gradle task to run (e.g., spotlessApply, generateProtos)'
         required: true
         type: string
+      no-daemon:
+        description: 'Run Gradle with --no-daemon flag'
+        required: false
+        type: boolean
+        default: true
       gradle-args:
         description: 'Additional Gradle arguments'
         required: false
         type: string
-        default: '--no-daemon'
+        default: ''
       java-version:
         description: 'Java version to use'
         required: false
@@ -96,7 +101,7 @@ jobs:
 
       - name: Run Gradle task
         id: gradle
-        run: ./gradlew ${{ inputs.gradle-task }} ${{ inputs.gradle-args }}
+        run: ./gradlew ${{ inputs.gradle-task }} ${{ inputs.no-daemon && '--no-daemon' || '' }} ${{ inputs.gradle-args }}
 
       - name: Check for changes
         id: check-changes
