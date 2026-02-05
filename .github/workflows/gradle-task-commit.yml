@@ -95,7 +95,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Java and Gradle
-        uses: ./.github/actions/setup-java-gradle
+        uses: violabs/public-cicd/.github/actions/setup-java-gradle@main
         with:
           java-version: ${{ inputs.java-version }}
           java-distribution: ${{ inputs.java-distribution }}
