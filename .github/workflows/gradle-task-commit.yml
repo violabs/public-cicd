@@ -57,6 +57,11 @@ on:
         required: false
         type: string
         default: 'ubuntu-latest'
+      cleanup-gradle-cache:
+        description: 'Clean up potentially corrupted Gradle caches before build'
+        required: false
+        type: boolean
+        default: true
     outputs:
       task-result:
         description: 'Gradle task result (success/failure)'
@@ -89,15 +94,13 @@ jobs:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
-      - name: Set up JDK ${{ inputs.java-version }}
-        uses: actions/setup-java@v4
+      - name: Setup Java and Gradle
+        uses: ./.github/actions/setup-java-gradle
         with:
-          distribution: ${{ inputs.java-distribution }}
           java-version: ${{ inputs.java-version }}
-          cache: gradle
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+          java-distribution: ${{ inputs.java-distribution }}
+          cleanup-wrapper: ${{ inputs.cleanup-gradle-cache }}
+          cleanup-caches: ${{ inputs.cleanup-gradle-cache }}
 
       - name: Run Gradle task
         id: gradle
