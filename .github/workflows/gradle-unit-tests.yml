@@ -128,7 +128,7 @@ jobs:
           if [ -n "$MODULE_PREFIX" ] && [ "$MODULE_PREFIX" != ":" ]; then
             # Module-specific test
             if [ "${{ inputs.coverage-enabled }}" == "true" ]; then
-              ./gradlew ${MODULE_PREFIX}:${{ inputs.test-task }} exi ${MODULE_PREFIX}:${{ inputs.coverage-report-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
+              ./gradlew ${MODULE_PREFIX}:${{ inputs.test-task }} -Pkover ${MODULE_PREFIX}:${{ inputs.coverage-report-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
             else
               ./gradlew ${MODULE_PREFIX}:${{ inputs.test-task }} ${{ steps.exclude.outputs.args }} $NO_DAEMON_FLAG ${{ inputs.gradle-args }}
             fi
